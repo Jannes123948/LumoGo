@@ -233,6 +233,17 @@ final class RouteProgressTracker {
         return (point, GeoUtils.bearing(point, target))
     }
 
+    /** In welcher Etappe (0 = aktuelle Route ab Start) liegt der Punkt [aheadMeters] vor [current]? */
+    func legIndex(aheadMeters: Double, from current: LatLon) -> Int {
+        let target = traveledDistanceAlongRoute(current) + aheadMeters
+        var legEnd: [Int: Double] = [:]
+        for (i, step) in steps.enumerated() {
+            legEnd[legIndexForStep[i]] = max(legEnd[legIndexForStep[i]] ?? 0, cumulativeManeuverDistance[i] + step.distance)
+        }
+        let legs = legEnd.keys.sorted()
+        return legs.first { (legEnd[$0] ?? 0) >= target } ?? (legs.last ?? 0)
+    }
+
     /**
      * Routenlinie um die aktuelle Position: [behindMeters] zurück bis [aheadMeters] voraus (für die
      * schematische Ansicht im Navigations-Widget). Beginnt/endet mit Zwischenpunkten auf der Linie.

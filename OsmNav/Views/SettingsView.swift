@@ -547,10 +547,28 @@ private struct NavigationSettingsPage: View {
                 }
                 SettingToggle("Alternativrouten anbieten", symbol: "arrow.triangle.branch", color: .teal, isOn: $settings.alternativeRoutes)
                 SettingToggle("Routenvorschau", symbol: "list.bullet.rectangle.fill", color: .indigo, isOn: $settings.routePreviewEnabled)
+                SettingToggle("Wetter auf der Route", symbol: "cloud.sun.fill", color: .cyan, isOn: $settings.routeWeather)
+                SettingToggle("GPX-Spur auf der Karte", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .orange, isOn: $settings.showTourTrack)
             } header: {
                 Text("Route")
             } footer: {
-                Text("Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start.")
+                Text("Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“).")
+            }
+            Section {
+                Picker(selection: $settings.alongRouteKm) {
+                    ForEach([25, 50, 100, 200], id: \.self) { Text("\($0) km").tag($0) }
+                } label: {
+                    SettingsRow(title: "Voraus suchen", symbol: "magnifyingglass", color: .blue)
+                }
+                Picker(selection: $settings.alongRouteCorridor) {
+                    ForEach([300, 600, 1000, 2000], id: \.self) { Text($0 >= 1000 ? "\($0 / 1000) km" : "\($0) m").tag($0) }
+                } label: {
+                    SettingsRow(title: "Neben der Route", symbol: "arrow.left.and.right", color: .teal)
+                }
+            } header: {
+                Text("Auf der Route suchen")
+            } footer: {
+                Text("Lupe in der Navi-Leiste bzw. „Auf der Route“ vor dem Start: Tankstellen, Rastplätze, Supermärkte, Toiletten, Essen, Parken, Ladesäulen entlang der Strecke — mit Umweg in Minuten; Antippen fügt einen Zwischenstopp ein. Größere Bereiche dauern länger.")
             }
             Section {
                 SettingToggle("Display bleibt an", symbol: "sun.max.fill", color: .yellow, isOn: $settings.keepScreenOn)

@@ -59,6 +59,8 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private static let destinationIcon = "destination-pin"
     private static let waypointIcon = "waypoint-dot"
     private static let puckIcon = "nav-arrow"
+    private static let tourSourceId = "tour-track"
+    private static let tourLayerId = "tour-track-layer"
     private static let selectedPoiSourceId = "selected-poi"
     private static let selectedPoiLayerId = "selected-poi-layer"
     /** Quell-Layer der OpenMapTiles-Kacheln, deren Symbole antippbar sind. */
@@ -83,6 +85,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private var selectedRouteIndex = 0
     private var puck: (LatLon, Double)?
     private var selectedPoi: LatLon?
+    private var tourTrack: [LatLon] = []
 
     func makeMapView(engine: MapEngine, dark: Bool) -> MLNMapView {
         Self.configureNetwork()
@@ -273,6 +276,16 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         style.setImage(Self.renderDot(), forName: Self.waypointIcon)
         style.setImage(Self.renderPuck(appearance.puckColor), forName: Self.puckIcon)
 
+        // GPX-Tour: Originalspur gestrichelt UNTER den Routen (die berechnete Route bleibt sichtbar).
+        let tourSource = MLNShapeSource(identifier: Self.tourSourceId, shape: nil, options: nil)
+        style.addSource(tourSource)
+        let tourLayer = MLNLineStyleLayer(identifier: Self.tourLayerId, source: tourSource)
+        tourLayer.lineColor = NSExpression(forConstantValue: UIColor(red: 0.95, green: 0.45, blue: 0.1, alpha: 0.9))
+        tourLayer.lineWidth = NSExpression(forConstantValue: 4)
+        tourLayer.lineDashPattern = NSExpression(forConstantValue: [2, 1.5])
+        tourLayer.lineCap = NSExpression(forConstantValue: "round")
+        style.addLayer(tourLayer)
+
         let altSource = MLNShapeSource(identifier: Self.routeAltSourceId, shape: nil, options: nil)
         style.addSource(altSource)
         let altLayer = MLNLineStyleLayer(identifier: Self.routeAltLayerId, source: altSource)
@@ -390,6 +403,18 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         altSource.shape = MLNShapeCollectionFeature(shapes: alternatives)
     }
 
+    /** Originalspur einer GPX-Tour; leer = ausblenden. */
+    func setTourTrack(_ points: [LatLon]) {
+        tourTrack = points
+        guard let source = style?.source(withIdentifier: Self.tourSourceId) as? MLNShapeSource else { return }
+        guard points.count >= 2 else {
+            source.shape = nil
+            return
+        }
+        var coords = points.map(\.coordinate)
+        source.shape = MLNPolylineFeature(coordinates: &coords, count: UInt(coords.count))
+    }
+
     func updatePuck(_ position: LatLon, heading: Double) {
         puck = (position, heading)
         guard let source = style?.source(withIdentifier: Self.puckSourceId) as? MLNShapeSource else { return }
@@ -414,6 +439,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private func redrawAll() {
         setDestinations(destinations)
         setSelectedPoi(selectedPoi)
+        setTourTrack(tourTrack)
         setRoutes(routes, selected: selectedRouteIndex)
         if let (position, heading) = puck { updatePuck(position, heading: heading) }
     }

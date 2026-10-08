@@ -7,8 +7,17 @@ struct FavoritesView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var favorites = FavoritesStore.list()
+    @State private var savedRoutes = SavedRoutesStore.list()
     @State private var exporting = false
-    @State private var importing = false
+    /** Ein einziger Datei-Dialog: zwei `.fileImporter` an derselben Ansicht vertragen sich nicht. */
+    @State private var importKind: ImportKind?
+    @State private var savingRoute = false
+    @State private var routeName = ""
+
+    private enum ImportKind { case favorites, gpx }
+
+    /** GPX hat keinen System-Typ; Dateien kommen aber oft als XML oder „beliebige Daten“ an. */
+    private static let gpxTypes: [UTType] = [UTType(filenameExtension: "gpx"), .xml].compactMap { $0 }
 
     var body: some View {
         NavigationStack {
@@ -42,26 +51,81 @@ struct FavoritesView: View {
                     Text("Tipp: Über den Stern neben einem Suchergebnis lässt sich auch eine Adresse speichern.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                Section("Sichern") {
+                Section {
+                    if savedRoutes.isEmpty {
+                        Text("Noch keine Routen gespeichert.").foregroundStyle(.secondary)
+                    }
+                    ForEach(savedRoutes) { saved in
+                        Button {
+                            model.loadSavedRoute(saved)
+                            dismiss()
+                        } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Label(saved.name, systemImage: saved.isTour ? "point.topleft.down.curvedto.point.bottomright.up" : "signpost.right.fill")
+                                Text(saved.isTour ? "GPX-Tour" : saved.stops.count == 1 ? "1 Ziel" : "\(saved.stops.count) Ziele")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .padding(.leading, 32)
+                            }
+                            .foregroundStyle(.primary)
+                        }
+                    }
+                    .onDelete { offsets in
+                        offsets.map { savedRoutes[$0].id }.forEach(SavedRoutesStore.remove)
+                        savedRoutes = SavedRoutesStore.list()
+                    }
+                    if !model.waypoints.isEmpty {
+                        Button {
+                            routeName = model.activeTour?.name ?? (model.waypoints.last?.label.components(separatedBy: ",").first ?? "")
+                            savingRoute = true
+                        } label: { Label("Aktuelle Route speichern", systemImage: "bookmark") }
+                    }
+                    Button { importKind = .gpx } label: { Label("GPX-Tour importieren", systemImage: "doc.badge.plus") }
+                } header: {
+                    Text("Gespeicherte Routen & Touren")
+                } footer: {
+                    Text("GPX-Touren aus Komoot, Strava, Outdooractive & Co. werden mit Ansagen abgefahren; die Originalspur erscheint gestrichelt auf der Karte.")
+                }
+                Section("Favoriten sichern") {
                     Button { exporting = true } label: { Label("Exportieren", systemImage: "square.and.arrow.up") }
-                    Button { importing = true } label: { Label("Importieren", systemImage: "square.and.arrow.down") }
+                    Button { importKind = .favorites } label: { Label("Importieren", systemImage: "square.and.arrow.down") }
                 }
             }
-            .navigationTitle("Favoriten")
+            .navigationTitle("Favoriten & Routen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
             .fileExporter(isPresented: $exporting, document: JSONFile(data: FavoritesStore.exportJson()), contentType: .json, defaultFilename: "osmnav_favoriten") { result in
                 if case .success = result { model.showToast("Favoriten exportiert.") }
             }
-            .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+            .fileImporter(isPresented: Binding(get: { importKind != nil }, set: { if !$0 { importKind = nil } }),
+                          allowedContentTypes: importKind == .gpx ? Self.gpxTypes + [.data] : [.json]) { result in
+                let kind = importKind
+                importKind = nil
                 guard case .success(let url) = result else { return }
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
-                if let data = try? Data(contentsOf: url), let count = try? FavoritesStore.importJson(data) {
+                guard let data = try? Data(contentsOf: url) else {
+                    model.showToast("Datei konnte nicht gelesen werden.")
+                    return
+                }
+                if kind == .gpx {
+                    if model.importGPX(data, fileName: url.lastPathComponent) {
+                        dismiss()
+                    } else {
+                        model.showToast("Keine GPX-Tour mit Wegpunkten gefunden.")
+                    }
+                } else if let count = try? FavoritesStore.importJson(data) {
                     favorites = FavoritesStore.list()
                     model.showToast("\(count) Favoriten importiert.")
                 } else {
                     model.showToast("Import fehlgeschlagen.")
+                }
+            }
+            .alert("Route speichern", isPresented: $savingRoute) {
+                TextField("Name", text: $routeName)
+                Button("Abbrechen", role: .cancel) {}
+                Button("Speichern") {
+                    model.saveCurrentRoute(name: routeName)
+                    savedRoutes = SavedRoutesStore.list()
                 }
             }
         }
@@ -149,10 +213,14 @@ struct TripHistoryView: View {
     var body: some View {
         NavigationStack {
             List {
+                if !trips.isEmpty {
+                    TripStatsSection(trips: trips)
+                }
                 if trips.isEmpty {
                     Text("Noch keine Fahrten. Fahrten werden nur bei tatsächlicher Ankunft gespeichert — mit Strecke, wenn „Strecke aufzeichnen“ an ist (Einstellungen → Navigation).")
                         .foregroundStyle(.secondary)
                 }
+                Section(trips.isEmpty ? "" : "Fahrten") {
                 ForEach(trips) { trip in
                     NavigationLink {
                         TripDetailView(trip: trip)
@@ -171,6 +239,7 @@ struct TripHistoryView: View {
                 .onDelete { offsets in
                     offsets.map { trips[$0].id }.forEach(TripHistoryStore.remove)
                     trips = TripHistoryStore.list()
+                }
                 }
             }
             .navigationTitle("Fahrtenbuch")

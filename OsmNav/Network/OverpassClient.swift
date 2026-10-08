@@ -51,6 +51,21 @@ enum OverpassClient {
         return try await execute(query, fallbackName: fallbackName, retryCount: defaultRetryCount)
     }
 
+    /**
+     * POIs einer Kategorie entlang einer Linie (Overpass `around` mit mehreren Koordinaten = Abstand
+     * zur Polylinie, nicht zu einzelnen Punkten). [line] sollte vereinfacht sein (≈ 100 Punkte).
+     */
+    static func fetchAlongLine(_ line: [LatLon], radiusMeters: Int, tags: [(String, String)], fallbackName: String) async throws -> [OverpassPlace] {
+        guard !line.isEmpty else { return [] }
+        let coords = line.map { String(format: "%.5f,%.5f", $0.latitude, $0.longitude) }.joined(separator: ",")
+        let around = "around:\(radiusMeters),\(coords)"
+        let statements = tags.map { key, value in
+            "  node[\"\(key)\"=\"\(value)\"](\(around));\n  way[\"\(key)\"=\"\(value)\"](\(around));"
+        }.joined(separator: "\n")
+        let query = "[out:json][timeout:30];\n(\n\(statements)\n);\nout center;"
+        return try await execute(query, fallbackName: fallbackName, retryCount: 2)
+    }
+
     /** Namenssuche (Ketten/Marken, die Nominatim oft nicht findet). Nur ein Versuch: läuft bei
      *  jeder Live-Suchtippunterbrechung, Retry-Pausen würden die Suche spürbar verzögern. */
     static func searchByName(_ query: String, bbox: BoundingBox) async throws -> [OverpassPlace] {

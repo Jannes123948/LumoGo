@@ -61,6 +61,15 @@ struct NavBottomBar: View {
             }
             Spacer()
             Button {
+                model.openAlongRoute()
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.headline)
+                    .frame(width: 42, height: 42)
+                    .background(settings.hudText.opacity(0.18), in: Circle())
+            }
+            .accessibilityLabel("Auf der Route suchen")
+            Button {
                 model.shareEta()
             } label: {
                 Image(systemName: "square.and.arrow.up")

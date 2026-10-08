@@ -68,6 +68,20 @@ final class AppModel: ObservableObject {
     @Published var showInstructions = false
     @Published private(set) var elevationProfile: ElevationProfile?
     @Published private(set) var routeLoading = false
+    /** Wetter entlang der Route (Open-Meteo), nil = keins/lädt. */
+    @Published private(set) var routeWeather: RouteWeather?
+    /** Laufende GPX-Tour (nil = normale Ziele). */
+    @Published private(set) var activeTour: Tour?
+    /** Index des nächsten noch nicht erreichten Durchgangspunkts der Tour. */
+    private var tourProgress = 0
+    /** Unterwegs eingefügter Halt während einer Tour (danach geht die Tour weiter). */
+    private var tourStop: Waypoint?
+    /**
+     * Wie viele [waypoints] vor dem Start der aktuellen Route schon erreicht waren. Die Etappen der
+     * Route zählen ab dort — ohne diesen Versatz schickte eine zweite Neuberechnung nach einem
+     * erreichten Zwischenziel wieder zu diesem zurück.
+     */
+    private var waypointOffset = 0
 
     // Navigation
     @Published private(set) var navigationActive = false
@@ -481,14 +495,23 @@ final class AppModel: ObservableObject {
     }
 
     private func waypointsChanged() {
+        // Selbst geänderte Ziele beenden eine GPX-Tour.
+        if activeTour != nil { endTour() }
         map.setDestinations(waypoints.map(\.point))
         if navigationActive { stopNavigation() }
         resetRoute()
     }
 
+    /** Ziele, die die Karte markiert (bei einer Tour: Halt + Tourende). */
+    private func refreshDestinationMarkers() {
+        map.setDestinations((tourStop.map { [$0.point] } ?? []) + waypoints.map(\.point))
+    }
+
     private func resetRoute() {
         lastRoute = nil
         elevationProfile = nil
+        routeWeather = nil
+        waypointOffset = 0
         routeOptions = []
         selectedRouteIndex = 0
         instructions = []
@@ -509,17 +532,18 @@ final class AppModel: ObservableObject {
             return
         }
         if navigationActive { stopNavigation() }
-        // OSRM liefert Alternativrouten nur bei genau Start + Ziel (kein Zwischenstopp).
-        let points = [start] + waypoints.map(\.point)
-        let alternatives = waypoints.count == 1 && settings.alternativeRoutes
+        waypointOffset = 0
+        let request = routeRequest(from: start)
+        // OSRM liefert Alternativrouten nur bei genau Start + Ziel (kein Zwischenstopp, keine Tour).
+        let alternatives = request.points.count == 2 && activeTour == nil && settings.alternativeRoutes
         routeLoading = true
         Task {
             defer { routeLoading = false }
             do {
-                let result = try await RouteFetcher.getRoutes(points, alternatives: alternatives, profile: settings.routingProfile)
-                routeOptions = result.routes
+                let result = try await RouteFetcher.getRoutes(request.points, alternatives: alternatives, profile: settings.routingProfile)
+                routeOptions = result.routes.map(request.finish)
                 selectRoute(0)
-                fitRouteInView(result.routes[0])
+                fitRouteInView(routeOptions[0])
                 if result.usedOfflineRouting { showToast("Offline-Route berechnet.") }
                 if startNavigationAfter { startNavigation() }
             } catch let error as OfflineRoutingError {
@@ -540,6 +564,34 @@ final class AppModel: ObservableObject {
         map.setRoutes(routeOptions.map(\.geometry), selected: index)
         instructions = RouteProgressTracker.previewInstructions(route)
         updateElevationProfile(route)
+        updateRouteWeather(route)
+    }
+
+    /**
+     * Routenpunkte für den aktuellen Zustand + Nachbearbeitung der Antwort:
+     *  - normal: Start + noch offene Ziele (ab [waypointOffset]);
+     *  - GPX-Tour: Start + ggf. eingefügter Halt + restliche Durchgangspunkte; die Etappen zwischen
+     *    Durchgangspunkten werden zusammengefasst (keine Ankunft an jedem Punkt), der Halt behält seine.
+     */
+    private func routeRequest(from start: LatLon) -> (points: [LatLon], finish: (OsrmRoute) -> OsrmRoute) {
+        guard let tour = activeTour else {
+            return ([start] + waypoints.map(\.point).dropFirst(waypointOffset), { $0 })
+        }
+        let vias = Array(tour.vias.dropFirst(min(tourProgress, tour.vias.count - 1)))
+        let stop = tourStop.map { [$0.point] } ?? []
+        let keep: Set<Int> = tourStop == nil ? [] : [0]
+        return ([start] + stop + vias, { Tour.mergeViaLegs($0, keepArrivalAfter: keep) })
+    }
+
+    /** Wetter zur voraussichtlichen Durchfahrtszeit — eine späte Antwort für eine verworfene Route zählt nicht. */
+    private func updateRouteWeather(_ route: OsrmRoute) {
+        routeWeather = nil
+        guard settings.routeWeather else { return }
+        Task {
+            guard let weather = try? await WeatherClient.forecast(along: route.geometry, durationSeconds: route.duration),
+                  lastRoute == route else { return }
+            routeWeather = weather
+        }
     }
 
     private func fitRouteInView(_ route: OsrmRoute) {
@@ -690,6 +742,18 @@ final class AppModel: ObservableObject {
         TripHistoryStore.add(trip)
     }
 
+    /** Tour: erreichte Durchgangspunkte abhaken; Halt erreicht (zweite Etappe begonnen) → vergessen. */
+    private func updateTourProgress(_ position: LatLon, _ tracker: RouteProgressTracker) {
+        guard let tour = activeTour else { return }
+        while tourProgress < tour.vias.count - 1, GeoUtils.distanceMeters(position, tour.vias[tourProgress]) < 80 {
+            tourProgress += 1
+        }
+        if tourStop != nil, tracker.currentLegIndex() > 0 {
+            tourStop = nil
+            refreshDestinationMarkers()
+        }
+    }
+
     /** Streckenpunkt für das Fahrtenbuch: nur genaue Fixes, frühestens alle 10 m. */
     private func recordTrackPoint(_ loc: CLLocation) {
         guard settings.recordTracks, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 50 else { return }
@@ -754,6 +818,7 @@ final class AppModel: ObservableObject {
         }
 
         recordTrackPoint(loc)
+        updateTourProgress(display, tracker)
         announcer.chainEnabled = settings.chainAnnouncements
         if tracker.advanceIfNeeded(display) {
             if let text = announcer.maneuverReached(tracker) { say(text) }
@@ -857,17 +922,26 @@ final class AppModel: ObservableObject {
         map.updatePuck(position, heading: heading)
     }
 
-    /** Neue Route ab der aktuellen Position zu den noch nicht erreichten Zielen. */
-    private func reroute(from current: LatLon, legIndex: Int) {
-        let remaining = waypoints.map(\.point).dropFirst(legIndex)
-        guard !remaining.isEmpty else { return }
+    /**
+     * Neue Route ab der aktuellen Position zu den noch nicht erreichten Zielen. [legIndex] = Etappe
+     * der bisherigen Route, in der man gerade ist (alles davor gilt als erreicht).
+     */
+    private func reroute(from current: LatLon, legIndex: Int, announce: Bool = true) {
+        if activeTour == nil {
+            waypointOffset = min(waypointOffset + legIndex, max(waypoints.count - 1, 0))
+        } else if legIndex > 0 {
+            tourStop = nil // Halt schon erreicht
+        }
+        let request = routeRequest(from: current)
+        guard request.points.count >= 2 else { return }
         reroutingInProgress = true
-        say("Route wird neu berechnet.", interrupt: true)
+        if announce { say("Route wird neu berechnet.", interrupt: true) }
         Task {
             defer { reroutingInProgress = false }
             do {
-                let result = try await RouteFetcher.getRoutes([current] + remaining, alternatives: false, profile: settings.routingProfile)
-                guard navigationActive, let route = result.routes.first else { return }
+                let result = try await RouteFetcher.getRoutes(request.points, alternatives: false, profile: settings.routingProfile)
+                guard navigationActive, let raw = result.routes.first else { return }
+                let route = request.finish(raw)
                 lastRoute = route
                 routeOptions = [route]
                 selectedRouteIndex = 0
@@ -1060,6 +1134,135 @@ final class AppModel: ObservableObject {
             FavoritesStore.add(name: finalName, point: point)
         }
         showToast(asHome ? "Als Zuhause gespeichert." : "Favorit gespeichert.")
+    }
+
+    // MARK: - Auf der Route suchen
+
+    /** „Auf der Route suchen“ öffnen (aus Routen-Panel und Navi-Leiste). */
+    func openAlongRoute() {
+        guard lastRoute != nil else { return }
+        requestedSheet = .some(.alongRoute)
+    }
+
+    /** Strecke, die noch vor einem liegt (Navigation: ab Position, sonst ab Routenstart), höchstens [meters]. */
+    func routeAhead(meters: Double) -> [LatLon] {
+        if navigationActive, let tracker, let position = lastDisplayPosition {
+            return tracker.geometryAround(position, behindMeters: 0, aheadMeters: meters)
+        }
+        guard let route = lastRoute, let start = route.geometry.first else { return [] }
+        return RouteProgressTracker(route: route).geometryAround(start, behindMeters: 0, aheadMeters: meters)
+    }
+
+    func searchAlongRoute(_ category: AlongRouteCategory) async throws -> [AlongRoutePlace] {
+        let line = routeAhead(meters: Double(settings.alongRouteKm) * 1000)
+        guard line.count >= 2 else { return [] }
+        let key = settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces)
+        return try await AlongRouteSearch.search(category, ahead: line, corridorMeters: Double(settings.alongRouteCorridor),
+                                                 fuel: key.isEmpty ? nil : (key, settings.fuelType))
+    }
+
+    /** Ort von „Auf der Route“ als nächsten Halt in der passenden Etappe einfügen und neu berechnen. */
+    func addStopOnRoute(_ place: AlongRoutePlace) {
+        let stop = Waypoint(point: place.point, label: place.name)
+        if activeTour != nil {
+            tourStop = stop
+            refreshDestinationMarkers()
+            if navigationActive, let raw = lastLocation.map({ LatLon($0.coordinate) }) {
+                reroute(from: raw, legIndex: 0, announce: false)
+                say("Zwischenstopp \(place.name) hinzugefügt.", interrupt: true)
+            } else {
+                calculateRoute()
+            }
+        } else if navigationActive, let tracker, let position = lastDisplayPosition,
+                  let raw = lastLocation.map({ LatLon($0.coordinate) }) {
+            // In die Etappe einfügen, in der der Ort liegt (könnte hinter dem nächsten Ziel sein).
+            let leg = tracker.legIndex(aheadMeters: place.alongMeters, from: position)
+            waypoints.insert(stop, at: min(waypointOffset + leg, waypoints.count - 1))
+            refreshDestinationMarkers()
+            reroute(from: raw, legIndex: tracker.currentLegIndex(), announce: false)
+            say("Zwischenstopp \(place.name) hinzugefügt.", interrupt: true)
+        } else {
+            let leg = lastRoute.flatMap { route in route.geometry.first.map { RouteProgressTracker(route: route).legIndex(aheadMeters: place.alongMeters, from: $0) } } ?? 0
+            var updated = waypoints
+            updated.insert(stop, at: min(leg, max(updated.count - 1, 0)))
+            waypoints = updated
+            waypointsChanged()
+            calculateRoute()
+        }
+        showToast("„\(place.name)“ als Zwischenstopp eingefügt.")
+    }
+
+    // MARK: - GPX-Touren & gespeicherte Routen
+
+    /** Tour laden: Spur auf die Karte, Route zum Tourstart und durch die Tour berechnen. */
+    func startTour(_ tour: Tour) {
+        if navigationActive { stopNavigation() }
+        clearSearch()
+        activeTour = tour
+        tourProgress = 0
+        tourStop = nil
+        waypoints = [Waypoint(point: tour.vias.last ?? tour.track.last!, label: tour.name)]
+        refreshDestinationMarkers()
+        map.setTourTrack(settings.showTourTrack ? tour.track : [])
+        resetRoute()
+        followEnabled = false
+        calculateRoute()
+    }
+
+    private func endTour() {
+        activeTour = nil
+        tourStop = nil
+        tourProgress = 0
+        map.setTourTrack([])
+    }
+
+    /** GPX-Datei einlesen, als gespeicherte Tour ablegen und sofort laden. */
+    func importGPX(_ data: Data, fileName: String) -> Bool {
+        let fallback = (fileName as NSString).deletingPathExtension
+        guard let tour = GPXReader.read(data, fallbackName: fallback.isEmpty ? "GPX-Tour" : fallback) else { return false }
+        TourStore.save(tour)
+        SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: tour.name, stops: [], profile: settings.routingProfile.rawValue,
+                                        tourId: tour.id, createdAt: Date()))
+        startTour(tour)
+        showToast("Tour „\(tour.name)“ (\(FormatUtils.formatDistance(tour.lengthMeters))) geladen.")
+        return true
+    }
+
+    /** Aktuelle Ziele (oder die laufende Tour) unter [name] speichern. */
+    func saveCurrentRoute(name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if let tour = activeTour {
+            var renamed = tour
+            renamed.name = trimmed.isEmpty ? tour.name : trimmed
+            TourStore.save(renamed)
+            SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: renamed.name, stops: [],
+                                            profile: settings.routingProfile.rawValue, tourId: renamed.id, createdAt: Date()))
+        } else {
+            guard !waypoints.isEmpty else { return }
+            let stops = waypoints.map { SavedStop(label: $0.label, lat: $0.point.latitude, lon: $0.point.longitude) }
+            SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: trimmed.isEmpty ? (waypoints.last?.label ?? "Route") : trimmed,
+                                            stops: stops, profile: settings.routingProfile.rawValue, tourId: nil, createdAt: Date()))
+        }
+        showToast("Route gespeichert.")
+    }
+
+    /** Gespeicherte Route/Tour laden und berechnen. */
+    func loadSavedRoute(_ saved: SavedRoute) {
+        if let profile = RoutingProfile(rawValue: saved.profile) { settings.routingProfile = profile }
+        if let tourId = saved.tourId {
+            guard let tour = TourStore.load(id: tourId) else {
+                showToast("Die Tour-Datei fehlt.")
+                return
+            }
+            startTour(tour)
+            return
+        }
+        if navigationActive { stopNavigation() }
+        clearSearch()
+        waypoints = saved.stops.map { Waypoint(point: $0.point, label: $0.label) }
+        waypointsChanged()
+        followEnabled = false
+        calculateRoute()
     }
 
     // MARK: - Widget, Live-Aktivität, Siri

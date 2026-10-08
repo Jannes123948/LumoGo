@@ -5,6 +5,8 @@ import Charts
 struct RoutePanel: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var settings: AppSettings
+    @State private var savingRoute = false
+    @State private var routeName = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -37,6 +39,35 @@ struct RoutePanel: View {
             } else if let route = model.lastRoute {
                 Text("\(FormatUtils.formatDuration(route.duration)) · \(FormatUtils.formatDistance(route.distance))")
                     .font(.headline)
+            }
+
+            if let tour = model.activeTour {
+                Label("GPX-Tour „\(tour.name)“ · \(FormatUtils.formatDistance(tour.lengthMeters))", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            if let weather = model.routeWeather {
+                RouteWeatherRow(weather: weather)
+            }
+
+            if model.lastRoute != nil {
+                HStack(spacing: 8) {
+                    Button {
+                        model.openAlongRoute()
+                    } label: {
+                        Label("Auf der Route", systemImage: "magnifyingglass").frame(maxWidth: .infinity)
+                    }
+                    Button {
+                        routeName = model.activeTour?.name ?? (model.waypoints.last?.label.components(separatedBy: ",").first ?? "")
+                        savingRoute = true
+                    } label: {
+                        Label("Speichern", systemImage: "bookmark").frame(maxWidth: .infinity)
+                    }
+                }
+                .buttonStyle(.bordered)
+                .font(.subheadline)
             }
 
             if settings.routePreviewEnabled, model.lastRoute != nil {
@@ -85,6 +116,46 @@ struct RoutePanel: View {
         }
         .padding(14)
         .card()
+        .alert("Route speichern", isPresented: $savingRoute) {
+            TextField("Name", text: $routeName)
+            Button("Abbrechen", role: .cancel) {}
+            Button("Speichern") { model.saveCurrentRoute(name: routeName) }
+        } message: {
+            Text("Unter „Favoriten & Routen“ jederzeit wieder abrufbar.")
+        }
+    }
+}
+
+/** Wetter am Ziel zur Ankunftszeit + erster Regen unterwegs (Open-Meteo). */
+struct RouteWeatherRow: View {
+    let weather: RouteWeather
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let destination = weather.destination {
+                Image(systemName: WeatherCode.symbol(destination.weatherCode))
+                    .symbolRenderingMode(.multicolor)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Am Ziel \(destination.time.formatted(date: .omitted, time: .shortened)): \(Int(destination.temperature.rounded()))° \(WeatherCode.text(destination.weatherCode))")
+                        .font(.caption.weight(.semibold))
+                    Text(subtitle).font(.caption2).foregroundStyle(weather.firstWet != nil ? Color.orange : .secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var subtitle: String {
+        if let wet = weather.firstWet {
+            let probability = wet.precipitationProbability.map { " (\($0) %)" } ?? ""
+            let km = Int((wet.alongMeters / 1000).rounded())
+            return km == 0 ? "Regen schon beim Start\(probability)" : "Regen ab ca. km \(km)\(probability)"
+        }
+        if let low = weather.minTemperature, let high = weather.maxTemperature, Int(high.rounded()) != Int(low.rounded()) {
+            return "Unterwegs trocken · \(Int(low.rounded()))–\(Int(high.rounded()))°"
+        }
+        return "Unterwegs trocken"
     }
 }
 

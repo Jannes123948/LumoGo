@@ -267,6 +267,13 @@ final class AppSettings: ObservableObject {
     @Published var liveActivityEnabled: Bool { didSet { defaults.set(liveActivityEnabled, forKey: "live_activity") } }
     /** Nach dem Teilen der Ankunftszeit erinnern, wenn sie sich um > 5 min verschiebt. */
     @Published var etaSharePrompt: Bool { didSet { defaults.set(etaSharePrompt, forKey: "eta_share_prompt") } }
+    /** „Auf der Route suchen“: wie weit voraus (km) und wie weit neben der Route (m). */
+    @Published var alongRouteKm: Int { didSet { defaults.set(alongRouteKm, forKey: "along_route_km") } }
+    @Published var alongRouteCorridor: Int { didSet { defaults.set(alongRouteCorridor, forKey: "along_route_corridor") } }
+    /** Wetter entlang der Route im Routen-Panel (Open-Meteo). */
+    @Published var routeWeather: Bool { didSet { defaults.set(routeWeather, forKey: "route_weather") } }
+    /** Originalspur einer GPX-Tour gestrichelt auf der Karte. */
+    @Published var showTourTrack: Bool { didSet { defaults.set(showTourTrack, forKey: "show_tour_track") } }
     /** Navigations-Widget (Homescreen) mit Daten versorgen — Ersatz für Bild-im-Bild. */
     @Published var navWidgetEnabled: Bool { didSet { defaults.set(navWidgetEnabled, forKey: "nav_widget") } }
     /** Gefahrene Strecke + Tempo im Fahrtenbuch speichern (GPX-Export). */
@@ -334,6 +341,10 @@ final class AppSettings: ObservableObject {
         etaSharePrompt = defaults.object(forKey: "eta_share_prompt") as? Bool ?? true
         recordTracks = defaults.object(forKey: "record_tracks") as? Bool ?? true
         navWidgetEnabled = defaults.object(forKey: "nav_widget") as? Bool ?? true
+        alongRouteKm = defaults.object(forKey: "along_route_km") as? Int ?? 50
+        alongRouteCorridor = defaults.object(forKey: "along_route_corridor") as? Int ?? 600
+        routeWeather = defaults.object(forKey: "route_weather") as? Bool ?? true
+        showTourTrack = defaults.object(forKey: "show_tour_track") as? Bool ?? true
         speedAdaptiveVolume = defaults.object(forKey: "speed_volume") as? Bool ?? true
         tankerkoenigKey = defaults.string(forKey: "tankerkoenig_key") ?? ""
         fuelType = FuelType(rawValue: defaults.string(forKey: "fuel_type") ?? "") ?? .e10
@@ -423,6 +434,10 @@ final class AppSettings: ObservableObject {
         etaSharePrompt = true
         recordTracks = true
         navWidgetEnabled = true
+        alongRouteKm = 50
+        alongRouteCorridor = 600
+        routeWeather = true
+        showTourTrack = true
         speedAdaptiveVolume = true
         fuelType = .e10
         fuelSortByPrice = true

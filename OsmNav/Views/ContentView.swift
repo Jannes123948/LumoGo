@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveSheet: String, Identifiable {
-    case settings, favorites, nearby, trips, offline
+    case settings, favorites, nearby, trips, offline, alongRoute
     var id: String { rawValue }
 }
 
@@ -110,6 +110,7 @@ struct ContentView: View {
             case .nearby: NearbyView()
             case .trips: TripHistoryView()
             case .offline: OfflineMapsView()
+            case .alongRoute: AlongRouteSheet()
             }
         }
         .sheet(item: $model.poiSelection) { _ in

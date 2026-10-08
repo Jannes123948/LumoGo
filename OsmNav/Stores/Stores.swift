@@ -69,6 +69,72 @@ enum FavoritesStore {
     }
 }
 
+/** Ein Halt einer gespeicherten Route. */
+struct SavedStop: Codable, Hashable {
+    let label: String
+    let lat: Double
+    let lon: Double
+    var point: LatLon { LatLon(lat, lon) }
+}
+
+/** Gespeicherte Route: Ziele in Reihenfolge + Profil, oder eine GPX-Tour ([tourId]). */
+struct SavedRoute: Codable, Identifiable, Hashable {
+    let id: String
+    var name: String
+    let stops: [SavedStop]
+    let profile: String
+    /** Gesetzt bei GPX-Touren (Spur in [TourStore]). */
+    var tourId: String?
+    let createdAt: Date
+
+    var isTour: Bool { tourId != nil }
+}
+
+/** Gespeicherte Routen und Touren (neueste zuerst). Touren-Spuren als Dateien, siehe [TourStore]. */
+enum SavedRoutesStore {
+    private static let key = "osmnav_saved_routes"
+
+    static func list() -> [SavedRoute] {
+        let routes: [SavedRoute] = DefaultsCodable.load(key)
+        return routes.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func add(_ route: SavedRoute) {
+        DefaultsCodable.save(key, [route] + list().filter { $0.id != route.id })
+    }
+
+    static func rename(id: String, to name: String) {
+        DefaultsCodable.save(key, list().map { var r = $0; if r.id == id { r.name = name }; return r })
+    }
+
+    static func remove(id: String) {
+        let all = list()
+        if let tourId = all.first(where: { $0.id == id })?.tourId { TourStore.delete(id: tourId) }
+        DefaultsCodable.save(key, all.filter { $0.id != id })
+    }
+}
+
+/** GPX-Touren als JSON-Dateien (Spuren mit Tausenden Punkten gehören nicht in UserDefaults). */
+enum TourStore {
+    private static let directory: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = base.appendingPathComponent("tours", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    private static func file(_ id: String) -> URL { directory.appendingPathComponent("\(id).json") }
+
+    static func save(_ tour: Tour) { try? JSONEncoder().encode(tour).write(to: file(tour.id), options: .atomic) }
+
+    static func load(id: String) -> Tour? {
+        guard let data = try? Data(contentsOf: file(id)) else { return nil }
+        return try? JSONDecoder().decode(Tour.self, from: data)
+    }
+
+    static func delete(id: String) { try? FileManager.default.removeItem(at: file(id)) }
+}
+
 /** Zuletzt ausgewählte Suchergebnisse (neueste zuerst, max. 8, ohne Duplikate). */
 enum RecentSearchesStore {
     private static let key = "osmnav_recent_searches"
