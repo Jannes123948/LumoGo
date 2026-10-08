@@ -76,7 +76,11 @@ private struct AdaptiveButtonStyle: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if prominent {
-            styled(content).foregroundStyle(Color(hex: ColorKeys.buttonText(accent: accent, buttonText: buttonText)))
+            // Eigener Stil statt .borderedProminent/.glassProminent: die nehmen die Systemfarbe `tint`
+            // (jetzt die lesbare Textfarbe) als Füllung und überschreiben teils die Schriftfarbe.
+            content.buttonStyle(ProminentButtonStyle(fill: Color(hex: UInt32(max(accent, 0))),
+                                                     text: Color(hex: ColorKeys.buttonText(accent: accent, buttonText: buttonText)),
+                                                     glass: enabled && LiquidGlass.isAvailable))
         } else {
             styled(content)
         }
@@ -87,29 +91,59 @@ private struct AdaptiveButtonStyle: ViewModifier {
         #if compiler(>=6.2)
         if enabled {
             if #available(iOS 26.0, *) {
-                if prominent {
-                    content.buttonStyle(.glassProminent)
-                } else {
-                    content.buttonStyle(.glass)
-                }
+                content.buttonStyle(.glass)
             } else {
-                legacy(content)
+                content.buttonStyle(.bordered)
             }
-        } else {
-            legacy(content)
-        }
-        #else
-        legacy(content)
-        #endif
-    }
-
-    @ViewBuilder
-    private func legacy(_ content: Content) -> some View {
-        if prominent {
-            content.buttonStyle(.borderedProminent)
         } else {
             content.buttonStyle(.bordered)
         }
+        #else
+        content.buttonStyle(.bordered)
+        #endif
+    }
+}
+
+/** Gefüllter Knopf in genau der gewählten Oberflächenfarbe mit genau der gewählten Knopfschrift. */
+private struct ProminentButtonStyle: ButtonStyle {
+    let fill: Color
+    let text: Color
+    let glass: Bool
+    @Environment(\.controlSize) private var controlSize
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        let large = controlSize == .large
+        let label = configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(text)
+            .padding(.horizontal, large ? 16 : 12)
+            .padding(.vertical, large ? 14 : 8)
+        Group {
+            #if compiler(>=6.2)
+            if glass {
+                if #available(iOS 26.0, *) {
+                    label.glassEffect(.regular.tint(fill).interactive(), in: Capsule())
+                } else {
+                    solid(label, large: large, pressed: configuration.isPressed)
+                }
+            } else {
+                solid(label, large: large, pressed: configuration.isPressed)
+            }
+            #else
+            solid(label, large: large, pressed: configuration.isPressed)
+            #endif
+        }
+        .opacity(isEnabled ? 1 : 0.45)
+    }
+
+    private func solid(_ label: some View, large: Bool, pressed: Bool) -> some View {
+        let shape = RoundedRectangle(cornerRadius: large ? 12 : 8, style: .continuous)
+        return label
+            .background(fill, in: shape)
+            // Weiße Fläche auf hellem Grund: dünner Rand, sonst ist der Knopf nicht zu erkennen.
+            .overlay(shape.strokeBorder(Color.primary.opacity(0.15), lineWidth: 0.5))
+            .opacity(pressed ? 0.75 : 1)
     }
 }
 

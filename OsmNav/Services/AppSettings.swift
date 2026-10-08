@@ -95,6 +95,32 @@ enum HexColor {
     /** Gut lesbare Schrift auf dieser Farbe: Schwarz auf hellen, Weiß auf dunklen Flächen. */
     static func contrastText(on hex: UInt32) -> UInt32 { isLight(hex) ? 0x1C1C1E : 0xFFFFFF }
 
+    /** Kontrastverhältnis nach WCAG (1…21). */
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        let la = luminance(a), lb = luminance(b)
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+    }
+
+    /** Hellere Variante (Richtung Weiß gemischt). */
+    static func lighter(_ hex: UInt32, by amount: Double = 0.2) -> UInt32 {
+        func mix(_ v: UInt32) -> UInt32 { UInt32((Double(v & 0xFF) + (255 - Double(v & 0xFF)) * amount).rounded()) }
+        return mix(hex >> 16) << 16 | mix(hex >> 8) << 8 | mix(hex)
+    }
+
+    /**
+     * [hex] als Schrift-/Linkfarbe auf dem Systemhintergrund (hell: Weiß, dunkel: fast Schwarz) gut
+     * lesbar gemacht: so lange abdunkeln bzw. aufhellen, bis der Kontrast ≥ 3 ist. Sonst wurden bei
+     * weißer/gelber Oberflächenfarbe „Fertig“, „Abbrechen“ & Co. unsichtbar (Nutzermeldung).
+     */
+    static func readable(_ hex: UInt32, dark: Bool) -> UInt32 {
+        let background: UInt32 = dark ? 0x1C1C1E : 0xFFFFFF
+        var color = hex
+        for _ in 0..<20 where contrast(color, background) < 3 {
+            color = dark ? lighter(color) : darker(color, by: 0.85)
+        }
+        return color
+    }
+
     /** Dunklere Variante (Navigationsleisten im Automatik-Modus). */
     static func darker(_ hex: UInt32, by factor: Double = 0.65) -> UInt32 {
         let r = UInt32(Double((hex >> 16) & 0xFF) * factor), g = UInt32(Double((hex >> 8) & 0xFF) * factor), b = UInt32(Double(hex & 0xFF) * factor)
@@ -108,6 +134,8 @@ enum ColorKeys {
     static let hudBackground = "hud_background_hex"
     static let hudText = "hud_text_hex"
     static let buttonText = "button_text_hex"
+    /** Text-Knöpfe, Links, Schalter (Systemfarbe `tint`); -1 = automatisch lesbar gemachte Oberflächenfarbe. */
+    static let textTint = "text_tint_hex"
     static let route = "route_hex"
     static let puck = "puck_hex"
     static let speedSign = "speed_sign_hex"
@@ -203,6 +231,8 @@ final class AppSettings: ObservableObject {
     @Published var hudBackgroundHex: UInt32? { didSet { defaults.set(hudBackgroundHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.hudBackground) } }
     /** Schrift in den Navigationsleisten; nil = automatisch (Kontrast zum Hintergrund). */
     @Published var hudTextHex: UInt32? { didSet { defaults.set(hudTextHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.hudText) } }
+    /** Text-Knöpfe („Fertig“), Links und Schalter; nil = automatisch (Oberflächenfarbe, lesbar gemacht). */
+    @Published var textTintHex: UInt32? { didSet { defaults.set(textTintHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.textTint) } }
     /** Schrift auf Knöpfen in Oberflächenfarbe; nil = automatisch. */
     @Published var buttonTextHex: UInt32? { didSet { defaults.set(buttonTextHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.buttonText) } }
     /** Deckkraft der Navigationsleisten (0,6–1). */
@@ -266,6 +296,7 @@ final class AppSettings: ObservableObject {
         hudBackgroundHex = Self.optionalColor(ColorKeys.hudBackground)
         hudTextHex = Self.optionalColor(ColorKeys.hudText)
         buttonTextHex = Self.optionalColor(ColorKeys.buttonText)
+        textTintHex = Self.optionalColor(ColorKeys.textTint)
         hudOpacity = defaults.object(forKey: "hud_opacity") as? Double ?? 0.88
         largeHud = defaults.object(forKey: "large_hud") as? Bool ?? false
         liquidGlass = defaults.object(forKey: LiquidGlass.settingsKey) as? Bool ?? true
@@ -292,6 +323,8 @@ final class AppSettings: ObservableObject {
     var resolvedHudBackgroundHex: UInt32 { hudBackgroundHex ?? HexColor.darker(accentHex) }
     var hudBackground: Color { Color(hex: resolvedHudBackgroundHex) }
     var hudText: Color { Color(hex: hudTextHex ?? HexColor.contrastText(on: resolvedHudBackgroundHex)) }
+    /** Farbe für Text-Knöpfe/Links/Schalter im jeweiligen Farbschema. */
+    func textTintHex(dark: Bool) -> UInt32 { textTintHex ?? HexColor.readable(accentHex, dark: dark) }
     var buttonText: Color { Color(hex: ColorKeys.buttonText(accent: Int(accentHex), buttonText: buttonTextHex.map(Int.init) ?? ColorKeys.auto)) }
 
     func resetColors() {
@@ -303,6 +336,7 @@ final class AppSettings: ObservableObject {
         hudBackgroundHex = nil
         hudTextHex = nil
         buttonTextHex = nil
+        textTintHex = nil
     }
 
     /** Gespeicherte Farbe; beim ersten Start nach dem Update aus der alten Farbnamen-Einstellung

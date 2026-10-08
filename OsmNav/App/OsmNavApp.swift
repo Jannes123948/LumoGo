@@ -18,10 +18,24 @@ struct OsmNavApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .modifier(TextTint(settings: settings))
                 .environmentObject(settings)
                 .environmentObject(model)
-                .tint(settings.accent)
                 .preferredColorScheme(settings.mapTheme.colorScheme)
         }
+    }
+}
+
+/**
+ * Systemfarbe `tint` (Text-Knöpfe wie „Fertig“, Links, Schalter, Auswahl) — NICHT direkt die
+ * Oberflächenfarbe: Weiß/Gelb machte sonst Schrift auf hellem Hintergrund unsichtbar. Gefüllte
+ * Knöpfe bekommen die Oberflächenfarbe selbst (siehe `ProminentButtonStyle`).
+ */
+private struct TextTint: ViewModifier {
+    @ObservedObject var settings: AppSettings
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content.tint(Color(hex: settings.textTintHex(dark: colorScheme == .dark)))
     }
 }

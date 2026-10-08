@@ -105,7 +105,7 @@ private struct SettingsHeaderCard: View {
                 }
                 .font(.caption.weight(.medium))
                 .labelStyle(.titleAndIcon)
-                .foregroundStyle(settings.accent)
+                .foregroundStyle(.tint)
             }
             Spacer(minLength: 0)
         }
@@ -286,6 +286,7 @@ private struct MapSettingsPage: View {
 
 private struct DesignSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
+    @Environment(\.colorScheme) private var colorScheme
     @State private var confirmReset = false
 
     var body: some View {
@@ -299,10 +300,12 @@ private struct DesignSettingsPage: View {
                 ColorSettingRow(title: "Oberflächenfarbe", symbol: "paintbrush.fill", hex: $settings.accentHex.asOptional)
                 ColorSettingRow(title: "Schrift auf Knöpfen", symbol: "textformat", hex: $settings.buttonTextHex,
                                 autoHex: HexColor.contrastText(on: settings.accentHex))
+                ColorSettingRow(title: "Text & Links", symbol: "link", hex: $settings.textTintHex,
+                                autoHex: HexColor.readable(settings.accentHex, dark: colorScheme == .dark))
             } header: {
                 Text("Oberfläche")
             } footer: {
-                Text("Knöpfe, Schalter und Auswahl. „Automatisch“ wählt die Schrift so, dass sie gut lesbar ist — auch auf Weiß.")
+                Text("Oberflächenfarbe = gefüllte Knöpfe. „Text & Links“ = Text-Knöpfe wie „Fertig“, Schalter und Auswahl. „Automatisch“ hält alle Schrift lesbar — auch bei Weiß oder Gelb.")
             }
             Section {
                 ColorSettingRow(title: "Hintergrund", symbol: "rectangle.fill", hex: $settings.hudBackgroundHex,
@@ -462,6 +465,7 @@ private struct ThemePreview: View {
                 Spacer()
                 HStack {
                     Toggle("", isOn: .constant(true)).labelsHidden().allowsHitTesting(false)
+                    Text("Fertig").font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
                     Spacer()
                     Text("Navigation starten")
                         .font(.subheadline.weight(.semibold))
