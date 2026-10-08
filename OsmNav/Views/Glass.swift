@@ -65,12 +65,25 @@ private struct GlassSurface<S: Shape>: ViewModifier {
     }
 }
 
-/** Knopfstil: Glas bzw. hervorgehobenes Glas ab iOS 26, sonst bordered/borderedProminent. */
+/** Knopfstil: Glas bzw. hervorgehobenes Glas ab iOS 26, sonst bordered/borderedProminent.
+ *  Hervorgehobene Knöpfe bekommen die eingestellte Knopfschrift (sonst weiße Schrift auf weißem Knopf). */
 private struct AdaptiveButtonStyle: ViewModifier {
     @AppStorage(LiquidGlass.settingsKey) private var enabled = true
+    @AppStorage(ColorKeys.accent) private var accent = Int(ColorKeys.defaultAccent)
+    @AppStorage(ColorKeys.buttonText) private var buttonText = ColorKeys.auto
     let prominent: Bool
 
+    @ViewBuilder
     func body(content: Content) -> some View {
+        if prominent {
+            styled(content).foregroundStyle(Color(hex: ColorKeys.buttonText(accent: accent, buttonText: buttonText)))
+        } else {
+            styled(content)
+        }
+    }
+
+    @ViewBuilder
+    private func styled(_ content: Content) -> some View {
         #if compiler(>=6.2)
         if enabled {
             if #available(iOS 26.0, *) {

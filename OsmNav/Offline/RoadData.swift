@@ -249,7 +249,7 @@ struct BinaryReader {
 
 // MARK: - Quelle
 
-/** Woher das Offline-Straßennetz kommt (Einstellungen → Navigation → Offline-Routing). */
+/** Woher Offline-Straßennetz UND Offline-Suchdaten kommen (Einstellungen → Navigation → Offline-Routing). */
 enum OfflineRoadSource: String, CaseIterable, Identifiable {
     /** OpenFreeMap-Vektorkacheln: schnell und zuverlässig, aber ohne Abbiegeverbote/Tempolimits. */
     case tiles

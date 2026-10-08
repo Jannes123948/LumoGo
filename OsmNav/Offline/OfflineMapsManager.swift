@@ -65,6 +65,27 @@ final class OfflineMapsManager: ObservableObject {
     @Published var lastMessage: String?
     /** Fortschritt des Straßennetz-Downloads je Paket (z.B. "3/9"), nil = läuft nicht. */
     @Published private(set) var routingProgress: [String: String] = [:]
+    /** Anteil 0…1 der laufenden Straßennetz- bzw. Suchdaten-Downloads je Paket. */
+    @Published private(set) var routingFraction: [String: Double] = [:]
+    @Published private(set) var searchFraction: [String: Double] = [:]
+
+    /**
+     * Gesamtfortschritt aller laufenden Downloads (Kartenpakete, Suchdaten, Straßennetz) als
+     * Mittelwert 0…1 — für die Prozentanzeige links neben der Suchleiste; nil = nichts lädt.
+     */
+    var activeDownloadFraction: Double? {
+        var fractions = packs.filter { $0.isActive && !$0.isComplete }.map(\.fraction)
+        fractions += Array(searchFraction.values) + Array(routingFraction.values)
+        guard !fractions.isEmpty else { return nil }
+        return min(max(fractions.reduce(0, +) / Double(fractions.count), 0), 1)
+    }
+
+    /** Was gerade lädt (Text unter der Prozentanzeige / Bedienungshilfe). */
+    var activeDownloadLabel: String {
+        if packs.contains(where: { $0.isActive && !$0.isComplete }) { return "Karte" }
+        if !searchFraction.isEmpty { return "Suche" }
+        return "Routing"
+    }
 
     /** Ein ganzes Bundesland bei hohem Zoom überfordert den kostenlosen Kachelserver irgendwann
      *  ohne Fehlermeldung — der Watchdog bricht nach 120s ohne Fortschritt sauber ab. */
@@ -177,33 +198,65 @@ final class OfflineMapsManager: ObservableObject {
         lastProgressAt[info.id] = nil
     }
 
-    /** Suchdaten (benannte Orte) für ein Paket per Overpass (neu) holen. */
-    func refreshSearchData(_ ctx: OfflinePackContext) {
+    /**
+     * Suchdaten für ein Paket (neu) holen — aus der eingestellten Quelle: Kartenkacheln (Standard,
+     * MIT Adressen und Straßen, siehe [TilePlacesBuilder]) oder Overpass (nur benannte Orte, dafür mit
+     * Öffnungszeiten); scheitert sie, automatisch die andere. [fresh] = Kacheln neu vom Server statt
+     * aus dem Kartenpaket (⋯-Menü „aktualisieren“ — das Paket hält den Stand seines Downloads).
+     */
+    func refreshSearchData(_ ctx: OfflinePackContext, fresh: Bool = false) {
         guard !fetchingPlaces.contains(ctx.id) else { return }
         fetchingPlaces.insert(ctx.id)
+        searchFraction[ctx.id] = 0
+        let source = OfflineRoadSource.current
+        let databasePath = MLNOfflineStorage.shared.databasePath
         NetworkPolicy.beginDataDownload()
         Task {
             defer { NetworkPolicy.endDataDownload() }
             do {
-                let places = try await OverpassClient.fetchNamedPlaces(ctx.boundingBox)
+                let places = try await Self.fetchSearchData(ctx.boundingBox, source: source, databasePath: databasePath, fresh: fresh) { fraction in
+                    Task { @MainActor in if self.searchFraction[ctx.id] != nil { self.searchFraction[ctx.id] = fraction } }
+                }
                 OfflinePlacesStore.shared.replace(regionId: ctx.id, places: places)
-                lastMessage = "Offline-Suche für „\(ctx.name)“: \(places.count) Orte gespeichert."
+                lastMessage = "Offline-Suche für „\(ctx.name)“: \(places.count.formatted()) Orte und Adressen gespeichert."
             } catch {
-                lastMessage = "Suchdaten für „\(ctx.name)“ konnten nicht geladen werden (Overpass-Server überlastet?)."
+                lastMessage = "Suchdaten für „\(ctx.name)“ konnten nicht geladen werden (Kachel- und Overpass-Server nicht erreichbar?)."
             }
             fetchingPlaces.remove(ctx.id)
+            searchFraction[ctx.id] = nil
             refresh()
         }
     }
 
+    private nonisolated static func fetchSearchData(_ bbox: BoundingBox, source: OfflineRoadSource, databasePath: String?, fresh: Bool,
+                                                    progress: @escaping (Double) -> Void) async throws -> [OverpassPlace] {
+        let order: [OfflineRoadSource] = source == .tiles ? [.tiles, .overpass] : [.overpass, .tiles]
+        var lastError: Error = AppError.noResults
+        for candidate in order {
+            try Task.checkCancellation()
+            do {
+                switch candidate {
+                case .tiles: return try await TilePlacesBuilder.download(bbox, databasePath: databasePath, preferNetwork: fresh, progress: progress)
+                case .overpass: return try await fetchPlacesInChunks(bbox, progress: progress)
+                }
+            } catch {
+                if error is CancellationError { throw error }
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
     /**
      * Straßennetz fürs Offline-Routing laden — aus der eingestellten Quelle (Standard: Vektorkacheln,
-     * siehe [TileRoadBuilder]), scheitert sie, automatisch aus der anderen (Overpass).
+     * siehe [TileRoadBuilder]), scheitert sie, automatisch aus der anderen (Overpass). [fresh] wie bei
+     * [refreshSearchData].
      */
-    func refreshRoutingData(_ ctx: OfflinePackContext) {
+    func refreshRoutingData(_ ctx: OfflinePackContext, fresh: Bool = false) {
         guard !fetchingRouting.contains(ctx.id) else { return }
         fetchingRouting.insert(ctx.id)
         routingProgress[ctx.id] = "startet …"
+        routingFraction[ctx.id] = 0
         // Läuft parallel zum Suchdaten-Download (Server erlaubt 4 Anfragen je Client) — früher
         // wartete das Straßennetz, bis die Suchdaten fertig waren.
         let includePaths = UserDefaults.standard.object(forKey: "offline_paths") as? Bool ?? false
@@ -213,8 +266,12 @@ final class OfflineMapsManager: ObservableObject {
         Task {
             defer { NetworkPolicy.endDataDownload() }
             do {
-                let (parts, used) = try await Self.buildRoadData(ctx, source: source, includePaths: includePaths, databasePath: databasePath) { text in
-                    Task { @MainActor in self.routingProgress[ctx.id] = text }
+                let (parts, used) = try await Self.buildRoadData(ctx, source: source, includePaths: includePaths, databasePath: databasePath, fresh: fresh) { text, fraction in
+                    Task { @MainActor in
+                        guard self.routingProgress[ctx.id] != nil else { return }
+                        self.routingProgress[ctx.id] = text
+                        self.routingFraction[ctx.id] = fraction
+                    }
                 }
                 try RoadDataStore.replace(packId: ctx.id, parts: parts)
                 await OfflineRouter.shared.invalidate()
@@ -226,14 +283,15 @@ final class OfflineMapsManager: ObservableObject {
             }
             fetchingRouting.remove(ctx.id)
             routingProgress[ctx.id] = nil
+            routingFraction[ctx.id] = nil
             refresh()
         }
     }
 
     /** Baut das Straßennetz aus [source], bei Fehler aus der anderen Quelle. Läuft nicht auf dem Main-Thread. */
     private nonisolated static func buildRoadData(
-        _ ctx: OfflinePackContext, source: OfflineRoadSource, includePaths: Bool, databasePath: String?,
-        progress: @escaping (String) -> Void
+        _ ctx: OfflinePackContext, source: OfflineRoadSource, includePaths: Bool, databasePath: String?, fresh: Bool,
+        progress: @escaping (String, Double) -> Void
     ) async throws -> (parts: [(info: RoadDataInfo, data: Data)], used: OfflineRoadSource) {
         let order: [OfflineRoadSource] = source == .tiles ? [.tiles, .overpass] : [.overpass, .tiles]
         var lastError: Error = AppError.noResults
@@ -242,13 +300,14 @@ final class OfflineMapsManager: ObservableObject {
             do {
                 switch candidate {
                 case .tiles:
-                    let parts = try await TileRoadBuilder.download(ctx.boundingBox, includePaths: includePaths, databasePath: databasePath, progress: progress)
+                    let parts = try await TileRoadBuilder.download(ctx.boundingBox, includePaths: includePaths, databasePath: databasePath,
+                                                                   preferNetwork: fresh, progress: progress)
                     return (parts.enumerated().map { i, part in
                         (RoadDataInfo(id: "\(ctx.id)_\(i)", boundingBox: part.boundingBox, nodeCount: part.nodeCount, createdAt: Date(), packId: ctx.id), part.data)
                     }, .tiles)
                 case .overpass:
                     let (data, nodeCount) = try await RoadDataBuilder.download(ctx.boundingBox, includePaths: includePaths) { done, total in
-                        progress("Overpass \(done)/\(total)")
+                        progress("Overpass \(done)/\(total)", Double(done) / Double(max(total, 1)))
                     }
                     return ([(RoadDataInfo(id: ctx.id, boundingBox: ctx.boundingBox, nodeCount: nodeCount, createdAt: Date(), packId: ctx.id), data)], .overpass)
                 }
@@ -258,6 +317,38 @@ final class OfflineMapsManager: ObservableObject {
             }
         }
         throw lastError
+    }
+
+    /**
+     * Suchdaten abschnittsweise (≈ 0,25°, ca. 28 × 17 km) statt als eine große Abfrage: liefert einen
+     * echten Fortschritt für die Prozentanzeige, und ein überlasteter Server bricht nicht gleich
+     * alles ab. Orte auf Abschnittsgrenzen werden entdoppelt.
+     */
+    private nonisolated static func fetchPlacesInChunks(_ bbox: BoundingBox, progress: @escaping (Double) -> Void) async throws -> [OverpassPlace] {
+        let chunks = RoadDataBuilder.chunks(bbox, size: 0.25)
+        var seen = Set<OverpassPlace>()
+        var places: [OverpassPlace] = []
+        for (i, chunk) in chunks.enumerated() {
+            try Task.checkCancellation()
+            for place in try await fetchChunkWithRetry(chunk) where seen.insert(place).inserted {
+                places.append(place)
+            }
+            progress(Double(i + 1) / Double(chunks.count))
+        }
+        return places
+    }
+
+    /** Server voll (504/429) → derselbe Abschnitt nach einer Pause nochmal, statt alles abzubrechen. */
+    private nonisolated static func fetchChunkWithRetry(_ chunk: BoundingBox) async throws -> [OverpassPlace] {
+        let pauses: [UInt64] = [8, 20, 40]
+        for attempt in 0...pauses.count {
+            do {
+                return try await OverpassClient.fetchNamedPlaces(chunk)
+            } catch AppError.http(let code) where (code == 504 || code == 429) && attempt < pauses.count {
+                try await Task.sleep(nanoseconds: pauses[attempt] * 1_000_000_000)
+            }
+        }
+        throw AppError.noResults
     }
 
     private func findPack(_ id: String) -> MLNOfflinePack? {

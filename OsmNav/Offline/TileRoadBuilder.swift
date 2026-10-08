@@ -60,10 +60,10 @@ enum TileRoadBuilder {
      * Lädt die Kacheln eines Gebiets (zuerst aus MapLibres Datenbank [databasePath]) und baut das
      * Straßennetz blockweise. Nachbarblöcke überlappen um eine Kachelreihe: deren Knoten-IDs (aus
      * dem globalen Raster) sind in beiden Blöcken gleich, [RoadGraph] verbindet die Blöcke darüber.
-     * [progress]: Text für die Paketliste.
+     * [progress]: Text für die Paketliste + Anteil 0…1 (Prozentanzeige neben der Suchleiste).
      */
-    static func download(_ bbox: BoundingBox, includePaths: Bool, databasePath: String?,
-                         progress: @escaping (String) -> Void) async throws -> [Part] {
+    static func download(_ bbox: BoundingBox, includePaths: Bool, databasePath: String?, preferNetwork: Bool = false,
+                         progress: @escaping (String, Double) -> Void) async throws -> [Part] {
         let range = VectorTileSource.tileRange(bbox)
         func starts(_ r: ClosedRange<Int>) -> [Int] {
             stride(from: r.lowerBound, through: max(r.lowerBound, r.upperBound - 1), by: blockTiles - 1).map { $0 }
@@ -80,11 +80,13 @@ enum TileRoadBuilder {
         for (i, block) in blocks.enumerated() {
             try Task.checkCancellation()
             let offset = doneTiles
-            let tiles = try await VectorTileSource.load(block, databasePath: databasePath) { done, _ in
-                progress("Kacheln \(offset + done)/\(totalTiles)")
+            let tiles = try await VectorTileSource.load(block, databasePath: databasePath, preferNetwork: preferNetwork) { done, _ in
+                // Laden ≈ 70 %, Bauen ≈ 30 % der Zeit.
+                progress("Kacheln \(offset + done)/\(totalTiles)", 0.7 * Double(offset + done) / Double(max(totalTiles, 1)))
             }
             doneTiles += block.xs.count * block.ys.count
-            progress(blocks.count > 1 ? "Block \(i + 1)/\(blocks.count) wird gebaut …" : "wird gebaut …")
+            progress(blocks.count > 1 ? "Block \(i + 1)/\(blocks.count) wird gebaut …" : "wird gebaut …",
+                     0.7 + 0.3 * Double(i) / Double(blocks.count))
             // Leerer Block (Meer, Grenzgebiet ohne Straßen) ist kein Fehler.
             guard let (data, nodes) = try? build(tiles, includePaths: includePaths) else { continue }
             parts.append(Part(boundingBox: boundingBox(block), data: data, nodeCount: nodes))

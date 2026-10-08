@@ -44,69 +44,99 @@ enum MapTheme: String, CaseIterable, Identifiable {
     }
 }
 
-/** Wählbare UI-Akzentfarbe (gleiche Farbwerte wie die Android-Version). */
-enum AccentColor: String, CaseIterable, Identifiable {
-    case green, blue, teal, purple, red, orange
-    var id: String { rawValue }
-    static let `default` = AccentColor.green
-
-    var primary: Color {
-        switch self {
-        case .green: return Color(hex: 0x2E7D32)
-        case .blue: return Color(hex: 0x1565C0)
-        case .teal: return Color(hex: 0x00796B)
-        case .purple: return Color(hex: 0x6A1B9A)
-        case .red: return Color(hex: 0xC62828)
-        case .orange: return Color(hex: 0xE65100)
-        }
+/**
+ * Farbpalette für ALLE Farbeinstellungen (Oberfläche, Navigationsleisten, Schrift, Route, Pfeil) —
+ * inkl. Weiß und Schwarz; dazu ist jede Farbe über das Farbrad frei wählbar.
+ */
+enum ColorPalette {
+    struct Swatch: Identifiable {
+        let name: String
+        let hex: UInt32
+        var id: UInt32 { hex }
     }
 
-    /** Dunkle Variante — Hintergrund der Navigations-HUD-Leisten. */
-    var dark: Color {
-        switch self {
-        case .green: return Color(hex: 0x1B5E20)
-        case .blue: return Color(hex: 0x0D47A1)
-        case .teal: return Color(hex: 0x004D40)
-        case .purple: return Color(hex: 0x4A148C)
-        case .red: return Color(hex: 0x8E0000)
-        case .orange: return Color(hex: 0xBF360C)
-        }
+    static let swatches: [Swatch] = [
+        Swatch(name: "Weiß", hex: 0xFFFFFF),
+        Swatch(name: "Grau", hex: 0x8E8E93),
+        Swatch(name: "Schwarz", hex: 0x1C1C1E),
+        Swatch(name: "Rot", hex: 0xD32F2F),
+        Swatch(name: "Orange", hex: 0xF57C00),
+        Swatch(name: "Gelb", hex: 0xFBC02D),
+        Swatch(name: "Grün", hex: 0x2E7D32),
+        Swatch(name: "Mint", hex: 0x00BFA5),
+        Swatch(name: "Türkis", hex: 0x00838F),
+        Swatch(name: "Hellblau", hex: 0x29B6F6),
+        Swatch(name: "Blau", hex: 0x2962FF),
+        Swatch(name: "Indigo", hex: 0x3949AB),
+        Swatch(name: "Lila", hex: 0x7B3FE4),
+        Swatch(name: "Pink", hex: 0xE91E8C),
+        Swatch(name: "Braun", hex: 0x795548),
+    ]
+
+    /** Name der Farbe, falls sie in der Palette ist (sonst „Eigene Farbe“). */
+    static func name(of hex: UInt32) -> String {
+        swatches.first { $0.hex == hex }?.name ?? "Eigene Farbe"
     }
 }
 
-/** Farbe für Routenlinie bzw. Standort-Pfeil (Einstellungen → Design). */
-enum MapColor: String, CaseIterable, Identifiable {
-    case blue, green, teal, purple, orange, red, pink, black
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .blue: return "Blau"
-        case .green: return "Grün"
-        case .teal: return "Türkis"
-        case .purple: return "Lila"
-        case .orange: return "Orange"
-        case .red: return "Rot"
-        case .pink: return "Pink"
-        case .black: return "Schwarz"
+/** Farbwert-Helfer (0xRRGGBB). */
+enum HexColor {
+    /** Relative Helligkeit 0…1 (WCAG). */
+    static func luminance(_ hex: UInt32) -> Double {
+        func channel(_ v: UInt32) -> Double {
+            let c = Double(v & 0xFF) / 255
+            return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
         }
+        return 0.2126 * channel(hex >> 16) + 0.7152 * channel(hex >> 8) + 0.0722 * channel(hex)
     }
 
-    var hex: UInt32 {
-        switch self {
-        case .blue: return 0x2962FF
-        case .green: return 0x2E9E3E
-        case .teal: return 0x00A3A3
-        case .purple: return 0x7B3FE4
-        case .orange: return 0xF57C00
-        case .red: return 0xD32F2F
-        case .pink: return 0xE91E8C
-        case .black: return 0x263238
-        }
+    static func isLight(_ hex: UInt32) -> Bool { luminance(hex) > 0.45 }
+
+    /** Gut lesbare Schrift auf dieser Farbe: Schwarz auf hellen, Weiß auf dunklen Flächen. */
+    static func contrastText(on hex: UInt32) -> UInt32 { isLight(hex) ? 0x1C1C1E : 0xFFFFFF }
+
+    /** Dunklere Variante (Navigationsleisten im Automatik-Modus). */
+    static func darker(_ hex: UInt32, by factor: Double = 0.65) -> UInt32 {
+        let r = UInt32(Double((hex >> 16) & 0xFF) * factor), g = UInt32(Double((hex >> 8) & 0xFF) * factor), b = UInt32(Double(hex & 0xFF) * factor)
+        return r << 16 | g << 8 | b
+    }
+}
+
+/** UserDefaults-Schlüssel der Farben (auch von `@AppStorage` in Glass.swift gelesen). */
+enum ColorKeys {
+    static let accent = "ui_accent_hex"
+    static let hudBackground = "hud_background_hex"
+    static let hudText = "hud_text_hex"
+    static let buttonText = "button_text_hex"
+    static let route = "route_hex"
+    static let puck = "puck_hex"
+    static let speedSign = "speed_sign_hex"
+    static let speeding = "speeding_hex"
+    /** Wert für „Automatisch“ bei den optionalen Farben. */
+    static let auto = -1
+
+    static let defaultAccent: UInt32 = 0x2E7D32
+    static let defaultRoute: UInt32 = 0x2962FF
+    static let defaultPuck: UInt32 = 0x2962FF
+    /** Rand des Tempolimit-Schilds (Verkehrszeichen-Rot). */
+    static let defaultSpeedSign: UInt32 = 0xCC0D0D
+    /** Geschwindigkeits-Anzeige bei Überschreitung. */
+    static let defaultSpeeding: UInt32 = 0xD32F2F
+
+    /** Schrift auf Knöpfen in Oberflächenfarbe — gewählt oder automatisch passend zur Oberflächenfarbe. */
+    static func buttonText(accent: Int, buttonText: Int) -> UInt32 {
+        buttonText >= 0 ? UInt32(buttonText) : HexColor.contrastText(on: UInt32(accent))
     }
 
-    var color: Color { Color(hex: hex) }
-    var uiColor: UIColor { UIColor(color) }
+    /** Alte Einstellungen (feste Farbnamen bis 0.0.1) → Farbwert. */
+    static func migrateAccent(_ name: String?) -> UInt32? {
+        ["green": 0x2E7D32, "blue": 0x1565C0, "teal": 0x00796B, "purple": 0x6A1B9A, "red": 0xC62828, "orange": 0xE65100][name ?? ""]
+    }
+
+    static func migrateMapColor(_ name: String?) -> UInt32? {
+        ["blue": 0x2962FF, "green": 0x2E9E3E, "teal": 0x00A3A3, "purple": 0x7B3FE4, "orange": 0xF57C00,
+         "red": 0xD32F2F, "pink": 0xE91E8C, "black": 0x263238][name ?? ""]
+    }
 }
 
 extension Color {
@@ -117,6 +147,14 @@ extension Color {
             blue: Double(hex & 0xFF) / 255
         )
     }
+
+    /** Farbwert 0xRRGGBB (sRGB, auf 0…1 begrenzt — das Farbrad kann P3-Farben liefern). */
+    var hexValue: UInt32 {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        func byte(_ v: CGFloat) -> UInt32 { UInt32((min(max(v, 0), 1) * 255).rounded()) }
+        return byte(r) << 16 | byte(g) << 8 | byte(b)
+    }
 }
 
 /** Alle Einstellungen der App, persistiert in UserDefaults. */
@@ -125,7 +163,8 @@ final class AppSettings: ObservableObject {
 
     @Published var mapEngine: MapEngine { didSet { defaults.set(mapEngine.rawValue, forKey: "map_engine") } }
     @Published var mapTheme: MapTheme { didSet { defaults.set(mapTheme.rawValue, forKey: "map_theme") } }
-    @Published var accentColor: AccentColor { didSet { defaults.set(accentColor.rawValue, forKey: "ui_accent_color") } }
+    /** Oberflächenfarbe (Knöpfe, Schalter, Auswahl). */
+    @Published var accentHex: UInt32 { didSet { defaults.set(Int(accentHex), forKey: ColorKeys.accent) } }
     @Published var routePreviewEnabled: Bool { didSet { defaults.set(routePreviewEnabled, forKey: "route_preview") } }
     @Published var recentSearchesEnabled: Bool { didSet { defaults.set(recentSearchesEnabled, forKey: "recent_searches") } }
     @Published var routingProfile: RoutingProfile { didSet { defaults.set(routingProfile.rawValue, forKey: "routing_profile") } }
@@ -154,8 +193,18 @@ final class AppSettings: ObservableObject {
     @Published var osmRotatable: Bool { didSet { defaults.set(osmRotatable, forKey: "osm_rotatable") } }
 
     // Design
-    @Published var routeColor: MapColor { didSet { defaults.set(routeColor.rawValue, forKey: "route_color") } }
-    @Published var puckColor: MapColor { didSet { defaults.set(puckColor.rawValue, forKey: "puck_color") } }
+    @Published var routeHex: UInt32 { didSet { defaults.set(Int(routeHex), forKey: ColorKeys.route) } }
+    @Published var puckHex: UInt32 { didSet { defaults.set(Int(puckHex), forKey: ColorKeys.puck) } }
+    /** Rand des Tempolimit-Schilds (von `SpeedLimitSign` per `@AppStorage` gelesen). */
+    @Published var speedSignHex: UInt32 { didSet { defaults.set(Int(speedSignHex), forKey: ColorKeys.speedSign) } }
+    /** Farbe der Geschwindigkeits-Anzeige, wenn man zu schnell ist. */
+    @Published var speedingHex: UInt32 { didSet { defaults.set(Int(speedingHex), forKey: ColorKeys.speeding) } }
+    /** Hintergrund der Navigationsleisten; nil = automatisch (dunklere Oberflächenfarbe). */
+    @Published var hudBackgroundHex: UInt32? { didSet { defaults.set(hudBackgroundHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.hudBackground) } }
+    /** Schrift in den Navigationsleisten; nil = automatisch (Kontrast zum Hintergrund). */
+    @Published var hudTextHex: UInt32? { didSet { defaults.set(hudTextHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.hudText) } }
+    /** Schrift auf Knöpfen in Oberflächenfarbe; nil = automatisch. */
+    @Published var buttonTextHex: UInt32? { didSet { defaults.set(buttonTextHex.map(Int.init) ?? ColorKeys.auto, forKey: ColorKeys.buttonText) } }
     /** Deckkraft der Navigationsleisten (0,6–1). */
     @Published var hudOpacity: Double { didSet { defaults.set(hudOpacity, forKey: "hud_opacity") } }
     @Published var largeHud: Bool { didSet { defaults.set(largeHud, forKey: "large_hud") } }
@@ -190,7 +239,7 @@ final class AppSettings: ObservableObject {
     init() {
         mapEngine = MapEngine(rawValue: defaults.string(forKey: "map_engine") ?? "") ?? .vector
         mapTheme = MapTheme(rawValue: defaults.string(forKey: "map_theme") ?? "") ?? .system
-        accentColor = AccentColor(rawValue: defaults.string(forKey: "ui_accent_color") ?? "") ?? .default
+        accentHex = Self.storedColor(ColorKeys.accent, legacy: ColorKeys.migrateAccent(defaults.string(forKey: "ui_accent_color")), default: ColorKeys.defaultAccent)
         routePreviewEnabled = defaults.object(forKey: "route_preview") as? Bool ?? true
         recentSearchesEnabled = defaults.object(forKey: "recent_searches") as? Bool ?? true
         routingProfile = RoutingProfile(rawValue: defaults.string(forKey: "routing_profile") ?? "") ?? .car
@@ -210,8 +259,13 @@ final class AppSettings: ObservableObject {
         compassWhenIdle = defaults.object(forKey: "compass_idle") as? Bool ?? true
         showCompassButton = defaults.object(forKey: "show_compass_button") as? Bool ?? true
         osmRotatable = defaults.object(forKey: "osm_rotatable") as? Bool ?? true
-        routeColor = MapColor(rawValue: defaults.string(forKey: "route_color") ?? "") ?? .blue
-        puckColor = MapColor(rawValue: defaults.string(forKey: "puck_color") ?? "") ?? .blue
+        routeHex = Self.storedColor(ColorKeys.route, legacy: ColorKeys.migrateMapColor(defaults.string(forKey: "route_color")), default: ColorKeys.defaultRoute)
+        puckHex = Self.storedColor(ColorKeys.puck, legacy: ColorKeys.migrateMapColor(defaults.string(forKey: "puck_color")), default: ColorKeys.defaultPuck)
+        speedSignHex = Self.storedColor(ColorKeys.speedSign, legacy: nil, default: ColorKeys.defaultSpeedSign)
+        speedingHex = Self.storedColor(ColorKeys.speeding, legacy: nil, default: ColorKeys.defaultSpeeding)
+        hudBackgroundHex = Self.optionalColor(ColorKeys.hudBackground)
+        hudTextHex = Self.optionalColor(ColorKeys.hudText)
+        buttonTextHex = Self.optionalColor(ColorKeys.buttonText)
         hudOpacity = defaults.object(forKey: "hud_opacity") as? Double ?? 0.88
         largeHud = defaults.object(forKey: "large_hud") as? Bool ?? false
         liquidGlass = defaults.object(forKey: LiquidGlass.settingsKey) as? Bool ?? true
@@ -232,11 +286,45 @@ final class AppSettings: ObservableObject {
         showOpenStatus = defaults.object(forKey: "show_open_status") as? Bool ?? true
     }
 
+    // MARK: - Farben
+
+    var accent: Color { Color(hex: accentHex) }
+    var resolvedHudBackgroundHex: UInt32 { hudBackgroundHex ?? HexColor.darker(accentHex) }
+    var hudBackground: Color { Color(hex: resolvedHudBackgroundHex) }
+    var hudText: Color { Color(hex: hudTextHex ?? HexColor.contrastText(on: resolvedHudBackgroundHex)) }
+    var buttonText: Color { Color(hex: ColorKeys.buttonText(accent: Int(accentHex), buttonText: buttonTextHex.map(Int.init) ?? ColorKeys.auto)) }
+
+    func resetColors() {
+        accentHex = ColorKeys.defaultAccent
+        routeHex = ColorKeys.defaultRoute
+        puckHex = ColorKeys.defaultPuck
+        speedSignHex = ColorKeys.defaultSpeedSign
+        speedingHex = ColorKeys.defaultSpeeding
+        hudBackgroundHex = nil
+        hudTextHex = nil
+        buttonTextHex = nil
+    }
+
+    /** Gespeicherte Farbe; beim ersten Start nach dem Update aus der alten Farbnamen-Einstellung
+     *  übernommen und sofort gespeichert (damit `@AppStorage`-Leser denselben Wert sehen). */
+    private static func storedColor(_ key: String, legacy: UInt32?, default fallback: UInt32) -> UInt32 {
+        let defaults = UserDefaults.standard
+        if let value = defaults.object(forKey: key) as? Int, value >= 0 { return UInt32(value) }
+        let value = legacy ?? fallback
+        defaults.set(Int(value), forKey: key)
+        return value
+    }
+
+    private static func optionalColor(_ key: String) -> UInt32? {
+        guard let value = UserDefaults.standard.object(forKey: key) as? Int, value >= 0 else { return nil }
+        return UInt32(value)
+    }
+
     /** Alle Einstellungen auf Werkseinstellung (Favoriten, Verlauf, Fahrtenbuch bleiben). */
     func resetAll() {
         mapEngine = .vector
         mapTheme = .system
-        accentColor = .default
+        resetColors()
         routePreviewEnabled = true
         recentSearchesEnabled = true
         routingProfile = .car
@@ -256,8 +344,6 @@ final class AppSettings: ObservableObject {
         compassWhenIdle = true
         showCompassButton = true
         osmRotatable = true
-        routeColor = .blue
-        puckColor = .blue
         hudOpacity = 0.88
         largeHud = false
         liquidGlass = true

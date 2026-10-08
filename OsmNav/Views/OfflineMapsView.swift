@@ -185,18 +185,21 @@ private struct PackRow: View {
                             Button("Fortsetzen") { manager.resume(pack) }
                         }
                     }
-                    Button("Suchdaten aktualisieren") { manager.refreshSearchData(pack.context) }
-                    Button(pack.hasRouting ? "Routing-Daten aktualisieren" : "Routing-Daten laden") { manager.refreshRoutingData(pack.context) }
+                    Button("Suchdaten aktualisieren") { manager.refreshSearchData(pack.context, fresh: true) }
+                    Button(pack.hasRouting ? "Routing-Daten aktualisieren" : "Routing-Daten laden") { manager.refreshRoutingData(pack.context, fresh: true) }
                     Button("Löschen", role: .destructive) { manager.delete(pack) }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
             }
-            Text("Zoom \(pack.context.minZoom)–\(pack.context.maxZoom) · \(ByteCountFormatter.string(fromByteCount: Int64(pack.bytes), countStyle: .file)) · \(pack.placesCount) Orte offline suchbar")
+            Text("Zoom \(pack.context.minZoom)–\(pack.context.maxZoom) · \(ByteCountFormatter.string(fromByteCount: Int64(pack.bytes), countStyle: .file)) · \(pack.placesCount.formatted()) Orte & Adressen offline suchbar")
                 .font(.caption).foregroundStyle(.secondary)
+            // Laden UND Aktualisieren der Suchdaten — vorher gab es dafür keine Anzeige (Nutzermeldung).
+            if let fraction = manager.searchFraction[pack.id] {
+                DataProgressRow(fraction: fraction, text: "Adressen & Orte werden geladen")
+            }
             if let progress = manager.routingProgress[pack.id] {
-                Label("Straßennetz fürs Offline-Routing: \(progress)", systemImage: "arrow.triangle.turn.up.right.diamond")
-                    .font(.caption2).foregroundStyle(.secondary)
+                DataProgressRow(fraction: manager.routingFraction[pack.id] ?? 0, text: "Straßennetz fürs Offline-Routing: \(progress)")
             } else if pack.isComplete {
                 Label(pack.hasRouting ? "Offline-Routing verfügbar" : "Kein Offline-Routing (Menü → Routing-Daten laden)",
                       systemImage: pack.hasRouting ? "checkmark.circle.fill" : "exclamationmark.circle")
@@ -210,5 +213,30 @@ private struct PackRow: View {
                 }
             }
         }
+    }
+}
+
+/** Kleiner Fortschrittskreis + Prozent für Suchdaten/Straßennetz in der Paketliste. */
+private struct DataProgressRow: View {
+    let fraction: Double
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 3)
+                Circle()
+                    .trim(from: 0, to: max(fraction, 0.02))
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeOut(duration: 0.4), value: fraction)
+            }
+            .frame(width: 18, height: 18)
+            Text("\(text) · \(Int((fraction * 100).rounded(.down))) %")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .combine)
     }
 }

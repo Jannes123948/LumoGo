@@ -50,7 +50,8 @@ final class AppModel: ObservableObject {
     private var suppressSearch = false
     /** Läuft gerade eine Suche (Ladekreis in der Suchleiste). */
     @Published private(set) var searching = false
-    /** Zuletzt gefundene Ergebnisse je Suchtext — Rücktaste/erneutes Tippen zeigt sie sofort. */
+    /** Zuletzt gefundene Ergebnisse je Suchtext + grober Position — Rücktaste/erneutes Tippen zeigt
+     *  sie sofort, an einem anderen Ort wird neu gesucht (Treffer sind nach Nähe sortiert). */
     private var searchCache: [String: (results: [SearchResult], at: Date)] = [:]
 
     // Ziele & Route
@@ -159,7 +160,7 @@ final class AppModel: ObservableObject {
             showRecentSearchesIfEmpty()
             return
         }
-        if let cached = searchCache[query.lowercased()], Date().timeIntervalSince(cached.at) < 600 {
+        if let cached = searchCache[searchCacheKey(query)], Date().timeIntervalSince(cached.at) < 600 {
             searching = false
             searchResults = cached.results
             showSearchResults = !cached.results.isEmpty
@@ -172,6 +173,12 @@ final class AppModel: ObservableObject {
             if Task.isCancelled { return }
             await performSearch(showErrors: false)
         }
+    }
+
+    /** Suchtext + Standort-Zelle von 0,05° (≈ 5 km). */
+    private func searchCacheKey(_ query: String) -> String {
+        let cell = currentPosition.map { "\(Int(($0.latitude / 0.05).rounded(.down))),\(Int(($0.longitude / 0.05).rounded(.down)))" } ?? "-"
+        return "\(query.lowercased())|\(cell)"
     }
 
     func submitSearch() {
@@ -189,6 +196,7 @@ final class AppModel: ObservableObject {
     private func performSearch(showErrors: Bool) async {
         let query = searchText.trimmingCharacters(in: .whitespaces)
         guard !query.isEmpty else { return }
+        let cacheKey = searchCacheKey(query)
         searching = true
         defer { if !Task.isCancelled { searching = false } }
         do {
@@ -203,7 +211,7 @@ final class AppModel: ObservableObject {
             if Task.isCancelled { return }
             if !result.usedOfflineSearch {
                 if searchCache.count > 50 { searchCache.removeAll() }
-                searchCache[query.lowercased()] = (result.results, Date())
+                searchCache[cacheKey] = (result.results, Date())
             }
             // Die POI-Ergänzung kann Sekunden später kommen — eine inzwischen geschlossene Liste
             // (Karte angetippt, Ziel gewählt) darf sie nicht wieder aufmachen.
@@ -211,7 +219,7 @@ final class AppModel: ObservableObject {
             searchResults = result.results
             showSearchResults = !result.results.isEmpty
             if result.results.isEmpty && showErrors { showToast("Keine Ergebnisse gefunden.") }
-            if result.usedOfflineSearch { showToast("Offline-Suche verwendet (heruntergeladene Kartenpakete).") }
+            if result.usedOfflineSearch { showToast("Treffer aus den Offline-Daten (heruntergeladene Kartenpakete).") }
         } catch {
             if Task.isCancelled { return }
             if showErrors { showToast("Suche fehlgeschlagen. Internetverbindung prüfen.") }
@@ -461,7 +469,9 @@ final class AppModel: ObservableObject {
             } catch let error as OfflineRoutingError {
                 alertMessage = "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)"
             } catch {
-                alertMessage = "Route konnte nicht berechnet werden. Internetverbindung prüfen oder unter „Offline-Karten“ ein Paket für dieses Gebiet herunterladen."
+                alertMessage = RouteFetcher.isConnectivityError(error)
+                    ? "Route konnte nicht berechnet werden. Internetverbindung prüfen oder unter „Offline-Karten“ ein Paket für dieses Gebiet herunterladen."
+                    : "Keine Route gefunden. Ist das Ziel mit „\(settings.routingProfile.label)“ erreichbar?"
             }
         }
     }
@@ -567,9 +577,17 @@ final class AppModel: ObservableObject {
         // OSRMs nearest-Dienst. Für Re-Routing bleibt die rohe Position maßgeblich.
         let display: LatLon
         if navigationActive, let snap = tracker?.snapWithBearing(raw) {
-            // Auf der Route: Position UND Richtung aus der Route (Straßenrichtung voraus).
+            // Auf der Route: Position aus der Route, Richtung aus der Route (Straßenrichtung voraus,
+            // weich in Kurven, stimmt auch im Stand) — AUSSER man fährt erkennbar anders als die Route
+            // (Wenden, Gegenrichtung beim Start, andere Fahrbahn): dann hat die echte Fahrtrichtung
+            // Vorrang, sonst zeigte die Ansicht entgegen der Fahrtrichtung (Nutzermeldung).
             display = snap.point
-            navBearing = snap.bearing
+            if BearingFilter.isReliable(loc), Self.angleDifference(loc.course, snap.bearing) > 60 {
+                navBearing = loc.course
+            } else {
+                navBearing = snap.bearing
+            }
+            if BearingFilter.isReliable(loc) { lastReliableCourseAt = Date() }
         } else {
             display = navigationActive || !settings.snapToRoad ? raw : roadSnapper.snap(raw)
             if BearingFilter.isReliable(loc) {
@@ -693,7 +711,6 @@ final class AppModel: ObservableObject {
         say("Achtung, Tempolimit \(limit).")
     }
 
-    /** Neue Route ab der aktuellen Position zu den noch nicht erreichten Zielen. */
     /** Kompass dreht den Pfeil nur im freien Modus und nur, wenn gerade kein GPS-Kurs vorliegt. */
     private func onCompassHeading(_ heading: Double) {
         guard !navigationActive, settings.compassWhenIdle, Date().timeIntervalSince(lastReliableCourseAt) > 3,
@@ -702,6 +719,7 @@ final class AppModel: ObservableObject {
         map.updatePuck(position, heading: heading)
     }
 
+    /** Neue Route ab der aktuellen Position zu den noch nicht erreichten Zielen. */
     private func reroute(from current: LatLon, legIndex: Int) {
         let remaining = waypoints.map(\.point).dropFirst(legIndex)
         guard !remaining.isEmpty else { return }
@@ -731,8 +749,8 @@ final class AppModel: ObservableObject {
     private func updateHud(_ current: LatLon, _ tracker: RouteProgressTracker) {
         let remainingDistance = tracker.remainingDistance(current)
         let remainingDuration = tracker.remainingDuration(current)
-        let next = tracker.nextManeuver()
-        let distanceToNext = tracker.distanceToNextManeuver(current)
+        // Das gerade angesagte Manöver bleibt sichtbar, bis man es durchfahren hat.
+        let (next, distanceToNext) = tracker.displayedManeuver(current)
         hud = NavHudState(
             distanceText: FormatUtils.formatDistance(distanceToNext),
             instruction: next.instruction,
@@ -761,6 +779,12 @@ final class AppModel: ObservableObject {
     /** Hörprobe für die Einstellungen (auch wenn Ansagen aus sind). */
     func previewVoice() {
         say("In 300 Metern rechts abbiegen auf Hauptstraße. Danach links halten.", interrupt: true, force: true)
+    }
+
+    /** Kleinster Winkel zwischen zwei Richtungen (0…180°). */
+    private static func angleDifference(_ a: Double, _ b: Double) -> Double {
+        let d = abs(a - b).truncatingRemainder(dividingBy: 360)
+        return min(d, 360 - d)
     }
 
     /** Zoomstufe während der Navigation: nach Tempo oder fest. */

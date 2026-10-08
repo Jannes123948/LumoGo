@@ -1,6 +1,6 @@
 import SwiftUI
 
-/** Navigations-HUD oben: Manöverpfeil, Distanz, Anweisung, Fahrstreifen. Folgt der Akzentfarbe. */
+/** Navigations-HUD oben: Manöverpfeil, Distanz, Anweisung, Fahrstreifen. Farben aus Design & Farben. */
 struct NavHudView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var settings: AppSettings
@@ -29,9 +29,9 @@ struct NavHudView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(settings.hudText)
         .padding(16)
-        .glassPanel(tint: settings.accentColor.dark.opacity(settings.hudOpacity))
+        .glassPanel(tint: settings.hudBackground.opacity(settings.hudOpacity))
     }
 }
 
@@ -71,9 +71,9 @@ struct NavBottomBar: View {
                     .foregroundStyle(.white)
             }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(settings.hudText)
         .padding(16)
-        .glassPanel(tint: settings.accentColor.dark.opacity(settings.hudOpacity))
+        .glassPanel(tint: settings.hudBackground.opacity(settings.hudOpacity))
     }
 }
 
@@ -93,11 +93,11 @@ struct SpeedIndicator: View {
                     Text("\(kmh)").font(.system(size: 24, weight: .bold, design: .rounded)).monospacedDigit()
                     Text("km/h").font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(model.isSpeeding ? .white : .primary)
+                .foregroundStyle(model.isSpeeding ? Color(hex: HexColor.contrastText(on: settings.speedingHex)) : .primary)
                 .frame(width: 60, height: 54)
                 .glassSurface(RoundedRectangle(cornerRadius: 14, style: .continuous),
-                              tint: model.isSpeeding ? Color.red.opacity(0.85) : nil,
-                              fallback: model.isSpeeding ? AnyShapeStyle(Color.red) : AnyShapeStyle(.regularMaterial))
+                              tint: model.isSpeeding ? Color(hex: settings.speedingHex).opacity(0.85) : nil,
+                              fallback: model.isSpeeding ? AnyShapeStyle(Color(hex: settings.speedingHex)) : AnyShapeStyle(.regularMaterial))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: model.speedLimit)
@@ -109,13 +109,14 @@ struct SpeedIndicator: View {
 struct SpeedLimitSign: View {
     let limit: SpeedLimit
     var size: CGFloat = 60
+    @AppStorage(ColorKeys.speedSign) private var ringHex = Int(ColorKeys.defaultSpeedSign)
 
     var body: some View {
         ZStack {
             Circle().fill(.white)
             switch limit {
             case .kmh(let value):
-                Circle().strokeBorder(Color(red: 0.8, green: 0.05, blue: 0.05), lineWidth: size * 0.12)
+                Circle().strokeBorder(Color(hex: UInt32(max(ringHex, 0))), lineWidth: size * 0.12)
                 Text("\(value)")
                     .font(.system(size: size * (value >= 100 ? 0.34 : 0.4), weight: .bold, design: .rounded))
                     .foregroundStyle(.black)

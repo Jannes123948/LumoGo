@@ -113,36 +113,171 @@ final class OfflinePlacesStore {
         return dir
     }()
 
+    /** Ein Ort samt vorbereiteten Suchwörtern (normalisiert, siehe [normalizedWords]). */
+    private struct Entry {
+        let place: OverpassPlace
+        let words: [String]
+        let nameWords: [String]
+        /** Name ohne Wortgrenzen („robertboschstr7“) — für zusammengeschriebene Eingaben. */
+        let joinedName: String
+    }
+
+    /** Dekodierte Pakete im Speicher — mit Adressen sind das schnell 100.000 Einträge, die nicht
+     *  bei jedem Tastendruck neu aus JSON gelesen werden sollen. */
+    private var cache: [String: [Entry]] = [:]
+    /** Anzahl je Paket (für die Paketliste, ohne die Suchwörter aufzubereiten). */
+    private var counts: [String: Int] = [:]
+    private let lock = NSLock()
+
     private func file(_ regionId: String) -> URL { directory.appendingPathComponent("\(regionId).json") }
 
     func replace(regionId: String, places: [OverpassPlace]) {
         try? JSONEncoder().encode(places).write(to: file(regionId), options: .atomic)
+        lock.lock(); cache[regionId] = nil; counts[regionId] = places.count; lock.unlock()
     }
 
     func delete(regionId: String) {
         try? FileManager.default.removeItem(at: file(regionId))
+        lock.lock(); cache[regionId] = nil; counts[regionId] = nil; lock.unlock()
     }
 
     func count(regionId: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        if let count = counts[regionId] ?? cache[regionId]?.count { return count }
         guard let data = try? Data(contentsOf: file(regionId)),
               let places = try? JSONDecoder().decode([OverpassPlace].self, from: data) else { return 0 }
+        counts[regionId] = places.count
         return places.count
     }
 
-    func search(_ query: String, limit: Int = 20) -> [SearchResult] {
-        let needle = query.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-        guard !needle.isEmpty,
-              let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return [] }
-        var results: [SearchResult] = []
-        for url in files where url.pathExtension == "json" {
-            guard let data = try? Data(contentsOf: url),
-                  let places = try? JSONDecoder().decode([OverpassPlace].self, from: data) else { continue }
-            for place in places where place.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current).contains(needle) {
-                let name = place.locality.map { "\(place.name) (\($0))" } ?? place.name
-                results.append(SearchResult(displayName: name, lat: place.lat, lon: place.lon, boundingBox: nil))
-                if results.count >= limit { return results }
+    /** Lädt alle Pakete im Hintergrund in den Speicher, damit schon die erste Offline-Suche flott ist
+     *  (≈ 40.000 Einträge aufbereiten dauert sonst beim ersten Tastendruck über eine Sekunde). */
+    func warmUp() {
+        DispatchQueue.global(qos: .utility).async {
+            guard let files = try? FileManager.default.contentsOfDirectory(at: self.directory, includingPropertiesForKeys: nil) else { return }
+            for url in files where url.pathExtension == "json" { _ = self.entries(url.deletingPathExtension().lastPathComponent) }
+        }
+    }
+
+    private func entries(_ regionId: String) -> [Entry] {
+        lock.lock(); defer { lock.unlock() }
+        if let cached = cache[regionId] { return cached }
+        guard let data = try? Data(contentsOf: file(regionId)),
+              let places = try? JSONDecoder().decode([OverpassPlace].self, from: data) else { return [] }
+        // Auch ältere, schon gespeicherte Daten von Nur-Nummer-Namen („4“, „Q-3“, „4 12“) befreien.
+        let loaded = places.filter { TilePlacesBuilder.isSearchableName($0.name) }.map { place in
+            let nameWords = Self.normalizedWords(place.name)
+            return Entry(place: place, words: nameWords + Self.normalizedWords(place.locality ?? ""), nameWords: nameWords,
+                         joinedName: nameWords.joined())
+        }
+        cache[regionId] = loaded
+        return loaded
+    }
+
+    /** Zahlwörter 1–99 in normalisierter Schreibweise („funf“, „dreissig“) → Ziffern. */
+    private static let numberWords: [String: String] = {
+        let units = ["eins", "zwei", "drei", "vier", "funf", "sechs", "sieben", "acht", "neun"]
+        let teens = ["zehn", "elf", "zwolf", "dreizehn", "vierzehn", "funfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn"]
+        let tens = ["zwanzig", "dreissig", "vierzig", "funfzig", "sechzig", "siebzig", "achtzig", "neunzig"]
+        var words: [String: String] = ["ein": "1", "eine": "1"]
+        for (i, w) in units.enumerated() { words[w] = "\(i + 1)" }
+        for (i, w) in teens.enumerated() { words[w] = "\(i + 10)" }
+        for (t, ten) in tens.enumerated() {
+            words[ten] = "\((t + 2) * 10)"
+            for (u, unit) in units.enumerated() {
+                words[(u == 0 ? "ein" : unit) + "und" + ten] = "\((t + 2) * 10 + u + 1)"
             }
         }
-        return results
+        return words
+    }()
+
+    /** Ziffern für ein Zahlwort; ab 5 Buchstaben ist ein Tippfehler erlaubt („siben“ → 7). */
+    static func numberWord(_ word: String) -> String? {
+        if let exact = numberWords[word] { return exact }
+        guard word.count >= 5 else { return nil }
+        return numberWords.first { abs($0.key.count - word.count) <= 1 && editDistanceIsAtMostOne($0.key, word) }?.value
+    }
+
+    private static func editDistanceIsAtMostOne(_ a: String, _ b: String) -> Bool {
+        let a = Array(a), b = Array(b)
+        var i = 0, j = 0, edits = 0
+        while i < a.count && j < b.count {
+            if a[i] == b[j] { i += 1; j += 1; continue }
+            edits += 1
+            if edits > 1 { return false }
+            if a.count > b.count { i += 1 } else if b.count > a.count { j += 1 } else { i += 1; j += 1 }
+        }
+        return edits + (a.count - i) + (b.count - j) <= 1
+    }
+
+    /**
+     * Kleinschreibung, ohne Akzente, ß → ss, Wortende „strasse“ → „str“, Satzzeichen weg — damit
+     * „Wilsdruffer Str. 12“, „wilsdruffer straße 12“ und „Hauptstr 3“ gleich gefunden werden.
+     */
+    static func normalizedWords(_ text: String) -> [String] {
+        let folded = text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "de_DE"))
+            .replacingOccurrences(of: "ß", with: "ss")
+        var words: [String] = []
+        for raw in folded.split(whereSeparator: { !$0.isLetter && !$0.isNumber }) {
+            var word = String(raw)
+            for suffix in ["strasse", "str"] where word.hasSuffix(suffix) {
+                word = String(word.dropLast(suffix.count)) + "str"
+                break
+            }
+            words.append(word)
+        }
+        return words
+    }
+
+    /**
+     * Jedes Suchwort muss am Anfang eines Wortes von Name oder Ort stehen (Tippen von „haupt“ findet
+     * schon „Hauptstraße“); Wörter ab 4 Zeichen dürfen auch mitten im Wort stehen, und zusammen-
+     * geschriebene Eingaben („robertboschstraße“) passen auf den Namen ohne Wortgrenzen. Reihenfolge:
+     * exakter Name (ggf. + Ort) → Name beginnt mit dem Suchtext → Rest; innerhalb davon nach
+     * Entfernung zu [near] (sonst kürzere Namen zuerst). So kommt „Hauptstraße 12“ vor „… 120“.
+     * Findet sich nichts, wird es mit ausgeschriebenen Zahlen als Ziffern erneut versucht
+     * („Robert-Bosch-Straße sieben“, auch mit einem Tippfehler wie „siben“).
+     */
+    func search(_ query: String, near: LatLon? = nil, limit: Int = 20) -> [SearchResult] {
+        let tokens = Self.normalizedWords(query)
+        let results = search(tokens: tokens, near: near, limit: limit)
+        if !results.isEmpty { return results }
+        // Erst jetzt Zahlwörter umwandeln — sonst würde z.B. „neue“ (≈ „neun“) zur 9.
+        let numeric = tokens.enumerated().map { $0.offset > 0 ? (Self.numberWord($0.element) ?? $0.element) : $0.element }
+        return numeric == tokens ? [] : search(tokens: numeric, near: near, limit: limit)
+    }
+
+    private func search(tokens: [String], near: LatLon?, limit: Int) -> [SearchResult] {
+        guard !tokens.isEmpty,
+              let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return [] }
+        let joinedTokens = tokens.joined()
+        var matches: [(entry: Entry, score: Int)] = []
+        for url in files where url.pathExtension == "json" {
+            for entry in entries(url.deletingPathExtension().lastPathComponent) {
+                guard tokens.allSatisfy({ token in
+                    entry.words.contains { $0.hasPrefix(token) || (token.count >= 4 && $0.contains(token)) }
+                        || (token.count >= 6 && entry.joinedName.contains(token))
+                }) else { continue }
+                let tier: Int
+                if entry.nameWords == tokens || joinedTokens == entry.joinedName
+                    || (tokens.count > entry.nameWords.count && Array(tokens.prefix(entry.nameWords.count)) == entry.nameWords) {
+                    tier = 0
+                } else if entry.joinedName.hasPrefix(tokens[0]) {
+                    tier = 1
+                } else {
+                    tier = 2
+                }
+                let secondary = near.map { Int(GeoUtils.distanceMeters($0, LatLon(entry.place.lat, entry.place.lon))) } ?? entry.place.name.count
+                matches.append((entry, tier * 100_000_000 + min(secondary, 99_999_999)))
+                if matches.count >= 2000 { break }
+            }
+        }
+        var seen = Set<String>()
+        return matches.sorted { $0.score < $1.score }.compactMap { match -> SearchResult? in
+            let place = match.entry.place
+            let name = place.locality.map { "\(place.name) (\($0))" } ?? place.name
+            guard seen.insert(name).inserted else { return nil }
+            return SearchResult(displayName: name, lat: place.lat, lon: place.lon, boundingBox: nil)
+        }.prefix(limit).map { $0 }
     }
 }

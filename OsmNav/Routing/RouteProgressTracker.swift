@@ -28,7 +28,33 @@ final class RouteProgressTracker {
     private let routePoints: [LatLon]
     /** Strecke vom Routenstart bis zum Manöver von Schritt `i` — für die Nachhol-Erkennung. */
     private let cumulativeManeuverDistance: [Double]
+    /** Strecke vom Routenstart bis zu Routenpunkt `i`. */
+    private let cumulativePointDistance: [Double]
     private let averageSpeedMps: Double
+
+    /** Lage einer Position relativ zur Routenlinie (Lot, Segment, Abstand, zurückgelegte Strecke). */
+    private struct Located {
+        let point: LatLon
+        let segment: Int
+        let distance: Double
+        let traveled: Double
+    }
+
+    /** Ergebnis für die zuletzt gefragte Position (pro GPS-Fix wird dieselbe mehrfach gebraucht);
+     *  die nächste Suche beginnt im Fenster um dessen Segment. */
+    private var lastLocated: (input: LatLon, result: Located)?
+    /** Fenster um den letzten Treffer (Routenpunkte zurück/voraus) — statt bei jedem Fix alle
+     *  Punkte einer langen Route abzusuchen. */
+    private static let windowBack = 50
+    private static let windowAhead = 400
+    /** Liegt der beste Treffer im Fenster weiter weg, wird doch die ganze Route durchsucht
+     *  (GPS-Sprung, Rückkehr aus dem Hintergrund, Abweichung). */
+    private static let windowAcceptMeters = 30.0
+    /** Im Fenster zählt ein Sprung entlang der Route über [jumpFreeMeters] als Strafabstand
+     *  ([jumpPenalty] m je m) — sonst rastet der Pfeil auf Hin-und-zurück-Strecken (gleiche Straße
+     *  in beide Richtungen) zufällig auf der Gegenrichtung ein und bleibt dort. */
+    private static let jumpFreeMeters = 100.0
+    private static let jumpPenalty = 0.2
 
     private(set) var currentStepIndex = 0
 
@@ -42,6 +68,13 @@ final class RouteProgressTracker {
             defer { sum += step.distance }
             return sum
         }
+        var pointSum = 0.0
+        var pointDistances = [0.0]
+        for i in routePoints.indices.dropFirst() {
+            pointSum += GeoUtils.distanceMeters(routePoints[i - 1], routePoints[i])
+            pointDistances.append(pointSum)
+        }
+        cumulativePointDistance = routePoints.isEmpty ? [] : pointDistances
         averageSpeedMps = route.duration > 0 ? route.distance / route.duration : 0
     }
 
@@ -59,6 +92,22 @@ final class RouteProgressTracker {
     func maneuver(after offset: Int) -> NavStep? {
         let index = currentStepIndex + offset
         return index < steps.count ? steps[index] : nil
+    }
+
+    /**
+     * Manöver für die Anzeige (Pfeil, Text, Distanz): [advanceIfNeeded] schaltet schon 40 m VOR dem
+     * Manöver weiter (für die „Jetzt …“-Ansage) — die Anzeige soll aber das Abbiegen zeigen, bis man
+     * wirklich durch ist (Nutzermeldung: beim Rechtsabbiegen stand schon das nächste Symbol da).
+     * Gezeigt wird deshalb das gerade erreichte Manöver, bis es entlang der Route [passedMeters]
+     * überfahren ist.
+     */
+    func displayedManeuver(_ current: LatLon, passedMeters: Double = 8) -> (step: NavStep, distance: Double) {
+        if currentStepIndex > 0, steps[currentStepIndex].maneuverType != "arrive",
+           traveledDistanceAlongRoute(current) < cumulativeManeuverDistance[currentStepIndex] + passedMeters {
+            let step = steps[currentStepIndex]
+            return (step, GeoUtils.distanceMeters(current, step.maneuverPoint))
+        }
+        return (nextManeuver(), distanceToNextManeuver(current))
     }
 
     /** Distanz in Metern bis zum nächsten Manöverpunkt (Luftlinie). */
@@ -89,22 +138,47 @@ final class RouteProgressTracker {
 
     /** Entlang der Routenlinie vom Start bis zur Projektion von [current] zurückgelegte Strecke. */
     private func traveledDistanceAlongRoute(_ current: LatLon) -> Double {
-        guard routePoints.count >= 2 else { return 0 }
-        var accumulated = 0.0
-        var traveledAtBest = 0.0
-        var bestDistance = Double.greatestFiniteMagnitude
-        for i in 0..<(routePoints.count - 1) {
-            let a = routePoints[i]
-            let b = routePoints[i + 1]
-            let candidate = GeoUtils.closestPointOnSegment(current, a, b)
-            let d = GeoUtils.distanceMeters(current, candidate)
-            if d < bestDistance {
-                bestDistance = d
-                traveledAtBest = accumulated + GeoUtils.distanceMeters(a, candidate)
-            }
-            accumulated += GeoUtils.distanceMeters(a, b)
+        locate(current)?.traveled ?? 0
+    }
+
+    /**
+     * Nächster Punkt auf der Routenlinie (echtes Lot auf jedes Segment). Sucht zuerst im Fenster um
+     * den letzten Treffer — das folgt auch Routen, die dieselbe Straße hin und zurück nutzen, dem
+     * richtigen Abschnitt — und nur ohne nahen Treffer dort die ganze Route.
+     */
+    private func locate(_ current: LatLon) -> Located? {
+        guard routePoints.count >= 2 else { return nil }
+        if let cached = lastLocated, cached.input == current { return cached.result }
+        let lastIndex = routePoints.count - 2
+        var result: Located?
+        if let last = lastLocated?.result {
+            let windowed = scan(current, max(0, last.segment - Self.windowBack)...min(lastIndex, last.segment + Self.windowAhead),
+                                previousTraveled: last.traveled)
+            if windowed.distance <= Self.windowAcceptMeters { result = windowed }
         }
-        return traveledAtBest
+        let located = result ?? scan(current, 0...lastIndex)
+        lastLocated = (current, located)
+        return located
+    }
+
+    /** Bester Treffer in [segments]; mit [previousTraveled] werden große Sprünge entlang der Route bestraft. */
+    private func scan(_ current: LatLon, _ segments: ClosedRange<Int>, previousTraveled: Double? = nil) -> Located {
+        var best = Located(point: routePoints[segments.lowerBound], segment: segments.lowerBound,
+                           distance: .greatestFiniteMagnitude, traveled: 0)
+        var bestScore = Double.greatestFiniteMagnitude
+        for i in segments {
+            let candidate = GeoUtils.closestPointOnSegment(current, routePoints[i], routePoints[i + 1])
+            let d = GeoUtils.distanceMeters(current, candidate)
+            // Ohne Strafe kann kein Treffer besser werden als sein Abstand — schnell überspringen.
+            if d >= bestScore { continue }
+            let traveled = cumulativePointDistance[i] + GeoUtils.distanceMeters(routePoints[i], candidate)
+            let score = previousTraveled.map { d + max(0, abs(traveled - $0) - Self.jumpFreeMeters) * Self.jumpPenalty } ?? d
+            if score < bestScore {
+                bestScore = score
+                best = Located(point: candidate, segment: i, distance: d, traveled: traveled)
+            }
+        }
+        return best
     }
 
     func remainingDistance(_ current: LatLon) -> Double {
@@ -120,24 +194,9 @@ final class RouteProgressTracker {
         currentStepIndex < legIndexForStep.count ? legIndexForStep[currentStepIndex] : (legIndexForStep.last ?? 0)
     }
 
-    /** Nächster Punkt auf der gesamten Routenlinie (echtes Lot auf jedes Segment). */
+    /** Nächster Punkt auf der Routenlinie. */
     private func closestRoutePoint(_ current: LatLon) -> LatLon {
-        closestOnRoute(current)?.point ?? routePoints.first ?? current
-    }
-
-    private func closestOnRoute(_ current: LatLon) -> (point: LatLon, segment: Int)? {
-        guard routePoints.count >= 2 else { return nil }
-        var best = (point: routePoints[0], segment: 0)
-        var bestDistance = Double.greatestFiniteMagnitude
-        for i in 0..<(routePoints.count - 1) {
-            let candidate = GeoUtils.closestPointOnSegment(current, routePoints[i], routePoints[i + 1])
-            let d = GeoUtils.distanceMeters(current, candidate)
-            if d < bestDistance {
-                bestDistance = d
-                best = (candidate, i)
-            }
-        }
-        return best
+        locate(current)?.point ?? routePoints.first ?? current
     }
 
     /**
@@ -147,8 +206,8 @@ final class RouteProgressTracker {
      * in Kurven nicht hinterher. nil, wenn der Fahrer weiter als [maxSnapMeters] neben der Route ist.
      */
     func snapWithBearing(_ current: LatLon, maxSnapMeters: Double = 30, lookAheadMeters: Double = 20) -> (point: LatLon, bearing: Double)? {
-        guard let (point, segment) = closestOnRoute(current),
-              GeoUtils.distanceMeters(current, point) <= maxSnapMeters else { return nil }
+        guard let located = locate(current), located.distance <= maxSnapMeters else { return nil }
+        let point = located.point, segment = located.segment
         var remaining = lookAheadMeters
         var cursor = point
         var target = routePoints[segment + 1]
@@ -175,7 +234,7 @@ final class RouteProgressTracker {
     }
 
     func distanceFromRoute(_ current: LatLon) -> Double {
-        GeoUtils.distanceMeters(current, closestRoutePoint(current))
+        locate(current)?.distance ?? 0
     }
 
     /** "Setzt den Fahrer auf die Straße": Projektion auf die Routenlinie, sofern innerhalb von

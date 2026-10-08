@@ -11,6 +11,8 @@ struct OsmNavApp: App {
         let settings = AppSettings()
         _settings = StateObject(wrappedValue: settings)
         _model = StateObject(wrappedValue: AppModel(settings: settings))
+        // Offline-Suchdaten (mit Adressen) im Hintergrund vorladen.
+        OfflinePlacesStore.shared.warmUp()
     }
 
     var body: some Scene {
@@ -18,7 +20,7 @@ struct OsmNavApp: App {
             ContentView()
                 .environmentObject(settings)
                 .environmentObject(model)
-                .tint(settings.accentColor.primary)
+                .tint(settings.accent)
                 .preferredColorScheme(settings.mapTheme.colorScheme)
         }
     }

@@ -24,8 +24,8 @@ enum RoutingProfile: String, CaseIterable, Identifiable {
 }
 
 /**
- * Wählt wie bei Google Maps ein zum Manövertyp passendes Icon (SF Symbol). [mirrored] spiegelt
- * horizontal (Abbiegepfeil nach links), [rotationDegrees] nähert "scharf" an.
+ * Wählt wie bei Google Maps ein zum Manövertyp passendes Icon (SF Symbol). [rotationDegrees] nähert
+ * "scharf" an; [mirrored] wird nicht mehr genutzt (eigene Links-Symbole), bleibt für die Anzeige erhalten.
  */
 enum ManeuverIconResolver {
 
@@ -36,27 +36,41 @@ enum ManeuverIconResolver {
     }
 
     private static let roundaboutTypes: Set<String> = ["roundabout", "rotary", "roundabout turn", "exit roundabout", "exit rotary"]
-    private static let branchTypes: Set<String> = ["merge", "fork", "off ramp", "on ramp", "end of road"]
+    /** Abzweigungen ohne echtes Abbiegen (Gabelung, Auf-/Abfahrt) — schräge Pfeile wie bei Google Maps. */
+    private static let branchTypes: Set<String> = ["fork", "off ramp", "on ramp"]
 
+    /**
+     * Echte Links-Symbole statt gespiegelter Rechts-Symbole. „end of road“ (T-Kreuzung — bei OSRM
+     * sehr häufig) bekommt den normalen Abbiegepfeil; früher zeigte es das Gabel-Symbol, und beim
+     * Rechtsabbiegen erschien so ein „anderes Symbol“ (Nutzermeldung).
+     */
     static func resolve(type: String, modifier: String?) -> Icon {
         let isLeft = modifier?.contains("left") ?? false
+        let isRight = modifier?.contains("right") ?? false
         if modifier == "uturn" { return Icon(symbolName: "arrow.uturn.down", rotationDegrees: 0, mirrored: false) }
         if type == "arrive" { return Icon(symbolName: "flag.checkered", rotationDegrees: 0, mirrored: false) }
         if roundaboutTypes.contains(type) {
             return Icon(symbolName: "arrow.triangle.turn.up.right.circle", rotationDegrees: 0, mirrored: false)
         }
+        if type == "merge" { return Icon(symbolName: "arrow.triangle.merge", rotationDegrees: 0, mirrored: false) }
         if branchTypes.contains(type) {
-            return Icon(symbolName: "arrow.triangle.branch", rotationDegrees: 0, mirrored: isLeft)
+            if isLeft { return Icon(symbolName: "arrow.up.left", rotationDegrees: 0, mirrored: false) }
+            if isRight { return Icon(symbolName: "arrow.up.right", rotationDegrees: 0, mirrored: false) }
+            return Icon(symbolName: "arrow.up", rotationDegrees: 0, mirrored: false)
         }
         switch modifier {
         case nil, "straight":
             return Icon(symbolName: "arrow.up", rotationDegrees: 0, mirrored: false)
-        case "slight left", "slight right":
-            return Icon(symbolName: "arrow.up.right", rotationDegrees: 0, mirrored: isLeft)
-        case "sharp left", "sharp right":
-            return Icon(symbolName: "arrow.turn.up.right", rotationDegrees: isLeft ? -45 : 45, mirrored: isLeft)
+        case "slight left":
+            return Icon(symbolName: "arrow.up.left", rotationDegrees: 0, mirrored: false)
+        case "slight right":
+            return Icon(symbolName: "arrow.up.right", rotationDegrees: 0, mirrored: false)
+        case "sharp left":
+            return Icon(symbolName: "arrow.turn.up.left", rotationDegrees: -45, mirrored: false)
+        case "sharp right":
+            return Icon(symbolName: "arrow.turn.up.right", rotationDegrees: 45, mirrored: false)
         default:
-            return Icon(symbolName: "arrow.turn.up.right", rotationDegrees: 0, mirrored: isLeft)
+            return Icon(symbolName: isLeft ? "arrow.turn.up.left" : "arrow.turn.up.right", rotationDegrees: 0, mirrored: false)
         }
     }
 }

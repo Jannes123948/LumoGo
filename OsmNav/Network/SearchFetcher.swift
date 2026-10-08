@@ -52,6 +52,20 @@ struct SearchFetchResult {
  */
 enum SearchFetcher {
 
+    /** Suchtext mit Zahlwörtern als Ziffern („… sieben“/„… siben“ → „… 7“), nil = keine gefunden.
+     *  Das erste Wort bleibt (sonst würde „Neue Straße“ zur „9 Straße“). */
+    static func numericQuery(_ query: String) -> String? {
+        let words = query.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        var changed = false
+        let converted = words.enumerated().map { index, word -> String in
+            let normalized = OfflinePlacesStore.normalizedWords(word)
+            guard index > 0, normalized.count == 1, let digits = OfflinePlacesStore.numberWord(normalized[0]) else { return word }
+            changed = true
+            return digits
+        }
+        return changed ? converted.joined(separator: " ") : nil
+    }
+
     /** Die POI-Ergänzung (ohne SLA) darf Nominatim nicht blockieren — die Gnadenfrist gilt ab
      *  Suchbeginn, nicht erst ab Nominatims Antwort (sonst summieren sich beide Wartezeiten). */
     private static let poiGracePeriodSeconds = 2.0
@@ -76,7 +90,12 @@ enum SearchFetcher {
 
         let onlineError: Error
         do {
-            let nominatim = try await NominatimClient.search(query, near: near)
+            var nominatim = try await NominatimClient.search(query, near: near)
+            // „Robert-Bosch-Straße siben“: Nominatim kennt keine Zahlwörter → einmal mit Ziffern nachfragen.
+            if nominatim.isEmpty, let numeric = numericQuery(query) {
+                try await Task.sleep(nanoseconds: 1_000_000_000) // Nominatim: max. 1 Anfrage/Sekunde
+                nominatim = try await NominatimClient.search(numeric, near: near)
+            }
             if let onPartial {
                 if Task.isCancelled { poiTask.cancel(); throw CancellationError() }
                 await onPartial(nominatim)
@@ -86,7 +105,15 @@ enum SearchFetcher {
             } onCancel: {
                 poiTask.cancel()
             }
-            return SearchFetchResult(results: poi + nominatim, usedOfflineSearch: false)
+            let online = poi + nominatim
+            // Nominatim verzeiht keine Tippfehler/Zusammenschreibung („rober bosch straße 7“,
+            // „robertboschstraße siben“ → leere Antwort, KEIN Fehler) — dann die Offline-Daten fragen,
+            // die das abfangen (Nutzermeldung: Adresse existiert, Suche fand nichts).
+            if online.isEmpty {
+                let offline = OfflinePlacesStore.shared.search(query, near: near)
+                if !offline.isEmpty { return SearchFetchResult(results: offline, usedOfflineSearch: true) }
+            }
+            return SearchFetchResult(results: online, usedOfflineSearch: false)
         } catch {
             if Task.isCancelled { poiTask.cancel(); throw error }
             onlineError = error
@@ -94,10 +121,9 @@ enum SearchFetcher {
         let poi = await poiResults(waitFully: false)
         if !poi.isEmpty { return SearchFetchResult(results: poi, usedOfflineSearch: false) }
 
-        var offline = OfflinePlacesStore.shared.search(query)
-        if let near {
-            offline.sort { GeoUtils.distanceMeters(near, $0.point) < GeoUtils.distanceMeters(near, $1.point) }
-        }
+        // Sortiert selbst: erst Trefferqualität, dann Entfernung (reine Entfernung stellte
+        // „Hauptstraße 120“ vor die gesuchte „Hauptstraße 12“).
+        let offline = OfflinePlacesStore.shared.search(query, near: near)
         if !offline.isEmpty { return SearchFetchResult(results: offline, usedOfflineSearch: true) }
         throw onlineError
     }

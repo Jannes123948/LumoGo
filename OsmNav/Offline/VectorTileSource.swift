@@ -36,36 +36,61 @@ enum VectorTileSource {
 
     /**
      * Alle z14-Kacheln des Gebiets. [databasePath] = MapLibres Offline-Datenbank (nil = nur
-     * Download). [progress]: (fertig, gesamt).
+     * Download). [preferNetwork] = trotzdem alle frisch vom CDN holen (die Datenbank hält den
+     * Stand vom Paket-Download; neu eingetragene Adressen fehlen dort) — die Datenbank dient dann
+     * nur als Ersatz, wenn eine Kachel nicht aus dem Netz kommt. [progress]: (fertig, gesamt).
      */
-    static func load(_ bbox: BoundingBox, databasePath: String?, progress: @escaping (Int, Int) -> Void) async throws -> [TileData] {
-        try await load(tileRange(bbox), databasePath: databasePath, progress: progress)
+    static func load(_ bbox: BoundingBox, databasePath: String?, preferNetwork: Bool = false,
+                     progress: @escaping (Int, Int) -> Void) async throws -> [TileData] {
+        try await load(tileRange(bbox), databasePath: databasePath, preferNetwork: preferNetwork, progress: progress)
     }
 
     /** Wie oben, für einen Kachelbereich (z14). */
-    static func load(_ range: (xs: ClosedRange<Int>, ys: ClosedRange<Int>), databasePath: String?,
+    static func load(_ range: (xs: ClosedRange<Int>, ys: ClosedRange<Int>), databasePath: String?, preferNetwork: Bool = false,
                      progress: @escaping (Int, Int) -> Void) async throws -> [TileData] {
         var wanted = Set<Int64>()
         for x in range.xs { for y in range.ys { wanted.insert(key(x, y)) } }
         let total = wanted.count
 
-        var tiles: [TileData] = []
+        var cached: [Int64: TileData] = [:]
         if let databasePath {
-            tiles = readFromDatabase(databasePath, range: range)
-            for t in tiles { wanted.remove(key(t.x, t.y)) }
+            for t in readFromDatabase(databasePath, range: range) { cached[key(t.x, t.y)] = t }
+        }
+        var tiles: [TileData] = []
+        if !preferNetwork {
+            tiles = Array(cached.values)
+            for k in cached.keys { wanted.remove(k) }
         }
         progress(tiles.count, total)
         guard !wanted.isEmpty else { return tiles }
 
-        let template = try await tileTemplate()
+        let template: String
+        do {
+            template = try await tileTemplate()
+        } catch {
+            // Kein Netz: mit dem vorhandenen Stand weitermachen, statt ganz zu scheitern.
+            if error is CancellationError || cached.isEmpty || !preferNetwork { throw error }
+            progress(total, total)
+            return Array(cached.values)
+        }
         var missing = Array(wanted)
         var done = tiles.count
+        // Mit [preferNetwork] darf eine einzelne Kachel scheitern, wenn es sie in der Datenbank gibt.
+        let fetch: @Sendable (Int64) async throws -> TileData? = { [cached] k in
+            do {
+                return try await download(template, k)
+            } catch {
+                if error is CancellationError { throw error }
+                if preferNetwork, let old = cached[k] { return old }
+                throw error
+            }
+        }
         try await withThrowingTaskGroup(of: TileData?.self) { group in
             var inFlight = 0
             func next() -> Int64? { missing.isEmpty ? nil : missing.removeLast() }
             while inFlight < parallelDownloads, let k = next() {
                 inFlight += 1
-                group.addTask { try await download(template, k) }
+                group.addTask { try await fetch(k) }
             }
             while let result = try await group.next() {
                 inFlight -= 1
@@ -74,7 +99,7 @@ enum VectorTileSource {
                 progress(done, total)
                 if let k = next() {
                     inFlight += 1
-                    group.addTask { try await download(template, k) }
+                    group.addTask { try await fetch(k) }
                 }
             }
         }

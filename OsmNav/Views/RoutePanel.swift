@@ -27,7 +27,7 @@ struct RoutePanel: View {
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
+                                .foregroundStyle(selected ? settings.buttonText : Color.primary)
                                 .background(selected ? Color.accentColor : Color(.secondarySystemBackground),
                                             in: RoundedRectangle(cornerRadius: 10))
                             }

@@ -23,8 +23,8 @@ struct MapAppearance: Equatable {
     var emphasizeStreetNames = true
     var widerMotorways = true
     var buildings3D = true
-    var routeColor: UInt32 = MapColor.blue.hex
-    var puckColor: UInt32 = MapColor.blue.hex
+    var routeColor: UInt32 = ColorKeys.defaultRoute
+    var puckColor: UInt32 = ColorKeys.defaultPuck
     /** OSM-Rasterkarte drehbar (die Vektorkarte ist es immer). */
     var osmRotatable = true
 }
@@ -253,7 +253,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         }
         if new.buildings3D != old.buildings3D { applyBuildings(style) }
         if new.routeColor != old.routeColor { applyRouteColor(style) }
-        if new.puckColor != old.puckColor { style.setImage(Self.renderPuck(UIColor(hex: new.puckColor)), forName: Self.puckIcon) }
+        if new.puckColor != old.puckColor { style.setImage(Self.renderPuck(new.puckColor), forName: Self.puckIcon) }
     }
 
     private func applyBuildings(_ style: MLNStyle) {
@@ -271,7 +271,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private func setupSources(_ style: MLNStyle) {
         style.setImage(Self.renderPin(), forName: Self.destinationIcon)
         style.setImage(Self.renderDot(), forName: Self.waypointIcon)
-        style.setImage(Self.renderPuck(UIColor(hex: appearance.puckColor)), forName: Self.puckIcon)
+        style.setImage(Self.renderPuck(appearance.puckColor), forName: Self.puckIcon)
 
         let altSource = MLNShapeSource(identifier: Self.routeAltSourceId, shape: nil, options: nil)
         style.addSource(altSource)
@@ -482,12 +482,15 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         }
     }
 
-    private static func renderPuck(_ color: UIColor) -> UIImage {
+    private static func renderPuck(_ hex: UInt32) -> UIImage {
+        let color = UIColor(hex: hex)
+        // Heller Pfeil (z.B. Weiß): dunkler Rand + dunkle Pfeilspitze, sonst wäre er unsichtbar.
+        let light = HexColor.isLight(hex)
         let size: CGFloat = 46
         return UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
             let cg = ctx.cgContext
             cg.setShadow(offset: CGSize(width: 0, height: 1), blur: 4, color: UIColor.black.withAlphaComponent(0.4).cgColor)
-            UIColor.white.setFill()
+            (light ? UIColor(white: 0.2, alpha: 1) : UIColor.white).setFill()
             cg.fillEllipse(in: CGRect(x: 3, y: 3, width: size - 6, height: size - 6))
             cg.setShadow(offset: .zero, blur: 0, color: nil)
             color.setFill()
@@ -499,7 +502,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
             arrow.addLine(to: CGPoint(x: size / 2, y: size - 18))
             arrow.addLine(to: CGPoint(x: 14, y: size - 13))
             arrow.close()
-            UIColor.white.setFill()
+            UIColor(hex: HexColor.contrastText(on: hex)).setFill()
             arrow.fill()
         }
     }

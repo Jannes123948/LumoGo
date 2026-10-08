@@ -22,8 +22,8 @@ struct ContentView: View {
                     emphasizeStreetNames: settings.emphasizeStreetNames,
                     widerMotorways: settings.widerMotorways,
                     buildings3D: settings.buildings3D,
-                    routeColor: settings.routeColor.hex,
-                    puckColor: settings.puckColor.hex,
+                    routeColor: settings.routeHex,
+                    puckColor: settings.puckHex,
                     osmRotatable: settings.osmRotatable
                 )
             )
@@ -33,7 +33,7 @@ struct ContentView: View {
                 if model.navigationActive {
                     NavHudView()
                 } else {
-                    SearchPanel()
+                    SearchPanel(onOpenDownloads: { sheet = .offline })
                     if settings.offlineMapsOnly || settings.fullyOffline {
                         Label(settings.fullyOffline ? "Komplett offline" : "Nur Offline-Karten", systemImage: "wifi.slash")
                             .font(.caption.weight(.semibold))
