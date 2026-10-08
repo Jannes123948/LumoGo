@@ -1,0 +1,7 @@
+.DS_Store
+xcuserdata/
+*.xcuserstate
+build/
+DerivedData/
+# versehentlich entstandene Datei (PNG) aus einem früheren Build-Aufruf
+/-frontend

@@ -1,0 +1,29 @@
+{
+  "version": 8,
+  "name": "OpenStreetMap (klassisch, dunkel)",
+  "sources": {
+    "osm": {
+      "type": "raster",
+      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "minzoom": 0,
+      "maxzoom": 19,
+      "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>-Mitwirkende"
+    }
+  },
+  "layers": [
+    { "id": "background", "type": "background", "paint": { "background-color": "#1c1c1e" } },
+    {
+      "id": "osm",
+      "type": "raster",
+      "source": "osm",
+      "paint": {
+        "raster-brightness-min": 0.92,
+        "raster-brightness-max": 0.08,
+        "raster-hue-rotate": 180,
+        "raster-saturation": -0.3,
+        "raster-contrast": 0.1
+      }
+    }
+  ]
+}
