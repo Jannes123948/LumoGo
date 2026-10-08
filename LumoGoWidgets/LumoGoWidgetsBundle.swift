@@ -1,10 +1,11 @@
 import SwiftUI
 import WidgetKit
 
-/** Widget-Erweiterung von LumoGo: Navigation auf Sperrbildschirm/Dynamic Island + Schnellzugriff. */
+/** Widget-Erweiterung von LumoGo: Navigations-Widget, Navigation auf Sperrbildschirm/Dynamic Island, Schnellzugriff. */
 @main
 struct LumoGoWidgetsBundle: WidgetBundle {
     var body: some Widget {
+        NavigationWidget()
         QuickActionsWidget()
         NavLiveActivityWidget()
     }

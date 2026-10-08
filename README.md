@@ -13,7 +13,9 @@ Suche: Nominatim + Overpass.
 1. `OsmNav.xcodeproj` in Xcode öffnen (Swift Package „MapLibre“ wird automatisch aufgelöst).
 2. Targets **OsmNav** UND **LumoGoWidgets** → *Signing & Capabilities* → jeweils eigenes Team wählen
    (für echtes iPhone nötig; ggf. Bundle-IDs `com.jannehorst.osmnav` / `….osmnav.widgets` anpassen —
-   die Widget-ID muss mit der App-ID beginnen).
+   die Widget-ID muss mit der App-ID beginnen). Beide nutzen die App Group `group.com.jannehorst.osmnav`
+   (Navigations-Widget) — Xcode legt sie beim automatischen Signieren an; bei geänderter Bundle-ID auch
+   die Gruppe in `OsmNav.entitlements`, `LumoGoWidgets.entitlements` und `Shared/NavWidgetState.swift` anpassen.
 3. Gerät/Simulator wählen → Run (⌘R). Im Simulator Standort über *Features → Location* setzen.
 
 ## Struktur (`OsmNav/`)

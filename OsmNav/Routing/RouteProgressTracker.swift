@@ -233,6 +233,29 @@ final class RouteProgressTracker {
         return (point, GeoUtils.bearing(point, target))
     }
 
+    /**
+     * Routenlinie um die aktuelle Position: [behindMeters] zurück bis [aheadMeters] voraus (für die
+     * schematische Ansicht im Navigations-Widget). Beginnt/endet mit Zwischenpunkten auf der Linie.
+     */
+    func geometryAround(_ current: LatLon, behindMeters: Double = 150, aheadMeters: Double = 1500) -> [LatLon] {
+        guard let located = locate(current) else { return routePoints }
+        let from = max(0, located.traveled - behindMeters), to = located.traveled + aheadMeters
+        var result: [LatLon] = []
+        for i in 0..<(routePoints.count - 1) {
+            let a = routePoints[i], b = routePoints[i + 1]
+            let da = cumulativePointDistance[i], db = cumulativePointDistance[i + 1]
+            if db < from { continue }
+            if da > to { break }
+            func at(_ d: Double) -> LatLon {
+                let f = db > da ? (d - da) / (db - da) : 0
+                return LatLon(a.latitude + (b.latitude - a.latitude) * f, a.longitude + (b.longitude - a.longitude) * f)
+            }
+            if result.isEmpty { result.append(da < from ? at(from) : a) }
+            result.append(db > to ? at(to) : b)
+        }
+        return result
+    }
+
     func distanceFromRoute(_ current: LatLon) -> Double {
         locate(current)?.distance ?? 0
     }

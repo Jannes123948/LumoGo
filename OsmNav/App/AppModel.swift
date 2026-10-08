@@ -29,6 +29,7 @@ final class AppModel: ObservableObject {
     let settings: AppSettings
     let map = MapController()
     private let liveActivity = LiveActivityController()
+    private let navWidget = NavWidgetPublisher()
     let location = LocationService()
     private let speech = SpeechService()
     private let roadSnapper = RoadSnapper()
@@ -608,6 +609,33 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /** Zustand fürs Navigations-Widget: HUD-Texte + schematische Route um die Position (Fahrtrichtung oben). */
+    private func navWidgetState(_ current: LatLon, _ tracker: RouteProgressTracker, displayed: NavStep) -> NavWidgetState {
+        // „Danach“: das Manöver nach dem gerade angezeigten.
+        let shownIsNext = displayed.maneuverPoint == tracker.nextManeuver().maneuverPoint
+        let then = tracker.maneuver(after: shownIsNext ? 2 : 1)
+        let route = NavWidgetPublisher.localMeters(tracker.geometryAround(current), origin: current, heading: navBearing)
+        let maneuver = NavWidgetPublisher.localMeters([displayed.maneuverPoint], origin: current, heading: navBearing).first
+        let background = settings.resolvedHudBackgroundHex
+        return NavWidgetState(
+            active: true,
+            distanceText: hud.distanceText,
+            instruction: hud.instruction,
+            symbolName: hud.icon.symbolName,
+            symbolRotation: hud.icon.rotationDegrees,
+            thenInstruction: then.flatMap { $0.maneuverType == "arrive" ? "Ziel erreichen" : $0.instruction },
+            etaText: hud.etaText,
+            remainingText: hud.summaryText,
+            destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? "Ziel",
+            updatedAt: Date(),
+            backgroundHex: Int(background),
+            textHex: Int(settings.hudTextHex ?? HexColor.contrastText(on: background)),
+            routeHex: Int(settings.routeHex),
+            route: route,
+            maneuver: maneuver
+        )
+    }
+
     /** Anzeige für Sperrbildschirm/Dynamic Island — dieselben Texte wie das HUD. */
     private func liveActivityState() -> NavActivityAttributes.ContentState {
         let instruction = hud.instruction.isEmpty ? (tracker?.currentInstruction() ?? "") : hud.instruction
@@ -625,6 +653,7 @@ final class AppModel: ObservableObject {
     /** [arrived] = am Ziel angekommen (Sperrbildschirm zeigt dann noch kurz „Angekommen“). */
     func stopNavigation(arrived: Bool = false) {
         liveActivity.end(arrived: arrived)
+        navWidget.clear()
         navigationActive = false
         arrivalDate = nil
         sharedArrival = nil
@@ -875,7 +904,10 @@ final class AppModel: ObservableObject {
             // Spurempfehlung erst kurz vor der Abzweigung (wie Google Maps).
             lanes: settings.laneGuidance && distanceToNext <= 400 ? (next.lanes ?? []) : []
         )
-        if navigationActive { liveActivity.update(liveActivityState()) }
+        if navigationActive {
+            liveActivity.update(liveActivityState())
+            if settings.navWidgetEnabled { navWidget.publish(navWidgetState(current, tracker, displayed: next)) }
+        }
     }
 
     // MARK: - Ankunftszeit teilen

@@ -267,6 +267,8 @@ final class AppSettings: ObservableObject {
     @Published var liveActivityEnabled: Bool { didSet { defaults.set(liveActivityEnabled, forKey: "live_activity") } }
     /** Nach dem Teilen der Ankunftszeit erinnern, wenn sie sich um > 5 min verschiebt. */
     @Published var etaSharePrompt: Bool { didSet { defaults.set(etaSharePrompt, forKey: "eta_share_prompt") } }
+    /** Navigations-Widget (Homescreen) mit Daten versorgen — Ersatz für Bild-im-Bild. */
+    @Published var navWidgetEnabled: Bool { didSet { defaults.set(navWidgetEnabled, forKey: "nav_widget") } }
     /** Gefahrene Strecke + Tempo im Fahrtenbuch speichern (GPX-Export). */
     @Published var recordTracks: Bool { didSet { defaults.set(recordTracks, forKey: "record_tracks") } }
     /** Ansagen in der Stadt etwas leiser, auf der Autobahn voll laut. */
@@ -331,6 +333,7 @@ final class AppSettings: ObservableObject {
         liveActivityEnabled = defaults.object(forKey: "live_activity") as? Bool ?? true
         etaSharePrompt = defaults.object(forKey: "eta_share_prompt") as? Bool ?? true
         recordTracks = defaults.object(forKey: "record_tracks") as? Bool ?? true
+        navWidgetEnabled = defaults.object(forKey: "nav_widget") as? Bool ?? true
         speedAdaptiveVolume = defaults.object(forKey: "speed_volume") as? Bool ?? true
         tankerkoenigKey = defaults.string(forKey: "tankerkoenig_key") ?? ""
         fuelType = FuelType(rawValue: defaults.string(forKey: "fuel_type") ?? "") ?? .e10
@@ -419,6 +422,7 @@ final class AppSettings: ObservableObject {
         liveActivityEnabled = true
         etaSharePrompt = true
         recordTracks = true
+        navWidgetEnabled = true
         speedAdaptiveVolume = true
         fuelType = .e10
         fuelSortByPrice = true

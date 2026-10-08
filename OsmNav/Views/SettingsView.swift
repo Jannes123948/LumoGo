@@ -558,11 +558,12 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Fahrstreifen-Empfehlung", symbol: "arrow.up.and.down.and.arrow.left.and.right", color: .blue, isOn: $settings.laneGuidance)
                 SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
                 SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
+                SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
                 SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
             }
             Section {
                 SettingToggle("Strecke aufzeichnen", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .brown, isOn: $settings.recordTracks)
