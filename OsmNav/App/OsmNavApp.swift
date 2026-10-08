@@ -13,6 +13,9 @@ struct OsmNavApp: App {
         _model = StateObject(wrappedValue: AppModel(settings: settings))
         // Offline-Suchdaten (mit Adressen) im Hintergrund vorladen.
         OfflinePlacesStore.shared.warmUp()
+        // Siri kennt die Favoriten-Namen („Navigiere mit LumoGo zu Arbeit“) — bei Änderungen neu melden.
+        FavoritesStore.onChange = { LumoGoShortcuts.updateAppShortcutParameters() }
+        LumoGoShortcuts.updateAppShortcutParameters()
     }
 
     var body: some Scene {

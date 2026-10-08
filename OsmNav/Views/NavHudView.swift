@@ -60,6 +60,15 @@ struct NavBottomBar: View {
                 Text(model.hud.summaryText).font(settings.largeHud ? .headline : .subheadline)
             }
             Spacer()
+            Button {
+                model.shareEta()
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.headline)
+                    .frame(width: 42, height: 42)
+                    .background(settings.hudText.opacity(0.18), in: Circle())
+            }
+            .accessibilityLabel("Ankunftszeit teilen")
             Button(role: .destructive) {
                 model.stopNavigation()
             } label: {
@@ -74,6 +83,33 @@ struct NavBottomBar: View {
         .foregroundStyle(settings.hudText)
         .padding(16)
         .glassPanel(tint: settings.hudBackground.opacity(settings.hudOpacity))
+    }
+}
+
+/** Hinweis, wenn sich die geteilte Ankunftszeit um mehr als 5 Minuten verschoben hat. */
+struct EtaShiftBanner: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var settings: AppSettings
+    let newEta: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "clock.badge.exclamationmark")
+            Text("Ankunft jetzt \(newEta)").font(.subheadline.weight(.semibold))
+            Spacer(minLength: 4)
+            Button("Neu teilen") { model.shareEta() }
+                .font(.subheadline.weight(.bold))
+            Button {
+                model.dismissEtaShift()
+            } label: {
+                Image(systemName: "xmark").font(.footnote.weight(.bold))
+            }
+            .accessibilityLabel("Hinweis schließen")
+        }
+        .foregroundStyle(settings.hudText)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .glassPanel(tint: settings.hudBackground.opacity(settings.hudOpacity), cornerRadius: 14)
     }
 }
 

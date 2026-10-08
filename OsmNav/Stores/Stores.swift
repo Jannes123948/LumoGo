@@ -17,6 +17,13 @@ private enum DefaultsCodable {
 enum FavoritesStore {
     private static let key = "osmnav_favorites"
     private static let homeId = "home"
+    /** Nach jeder Änderung (die App aktualisiert damit die Siri-Favoriten). */
+    static var onChange: (() -> Void)?
+
+    private static func save(_ favorites: [Favorite]) {
+        DefaultsCodable.save(key, favorites)
+        onChange?()
+    }
 
     static func list() -> [Favorite] {
         let favorites: [Favorite] = DefaultsCodable.load(key)
@@ -24,18 +31,18 @@ enum FavoritesStore {
     }
 
     static func add(name: String, point: LatLon) {
-        DefaultsCodable.save(key, list() + [Favorite(id: UUID().uuidString, name: name, point: point, isHome: false)])
+        save(list() + [Favorite(id: UUID().uuidString, name: name, point: point, isHome: false)])
     }
 
     static func remove(id: String) {
-        DefaultsCodable.save(key, list().filter { $0.id != id })
+        save(list().filter { $0.id != id })
     }
 
     static func home() -> Favorite? { list().first(where: \.isHome) }
 
     /** Setzt [point]/[name] als Zuhause — ersetzt einen zuvor gesetzten Zuhause-Eintrag. */
     static func setHome(name: String, point: LatLon) {
-        DefaultsCodable.save(key, list().filter { !$0.isHome } + [Favorite(id: homeId, name: name, point: point, isHome: true)])
+        save(list().filter { !$0.isHome } + [Favorite(id: homeId, name: name, point: point, isHome: true)])
     }
 
     /** Export-Format kompatibel zur Android-App (`name`/`lat`/`lon`/`isHome`). */
@@ -88,14 +95,51 @@ enum TripHistoryStore {
     }
 
     static func add(_ trip: Trip) {
-        DefaultsCodable.save(key, Array((list() + [trip]).sorted { $0.timestamp > $1.timestamp }.prefix(maxEntries)))
+        let all = (list() + [trip]).sorted { $0.timestamp > $1.timestamp }
+        DefaultsCodable.save(key, Array(all.prefix(maxEntries)))
+        // Herausgefallene Fahrten: Strecken-Dateien mit löschen.
+        all.dropFirst(maxEntries).forEach { TripTrackStore.delete(tripId: $0.id) }
     }
 
     static func remove(id: String) {
         DefaultsCodable.save(key, list().filter { $0.id != id })
+        TripTrackStore.delete(tripId: id)
     }
 
-    static func clear() { UserDefaults.standard.removeObject(forKey: key) }
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
+        TripTrackStore.deleteAll()
+    }
+}
+
+/** Aufgezeichnete Strecken der Fahrten — eine JSON-Datei je Fahrt (nicht in UserDefaults: 200 Fahrten
+ *  mit je Tausenden Punkten wären dort zu groß). */
+enum TripTrackStore {
+    private static let directory: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = base.appendingPathComponent("trip_tracks", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }()
+
+    private static func file(_ tripId: String) -> URL { directory.appendingPathComponent("\(tripId).json") }
+
+    static func save(tripId: String, points: [TrackPoint]) {
+        try? JSONEncoder().encode(points).write(to: file(tripId), options: .atomic)
+    }
+
+    static func load(tripId: String) -> [TrackPoint] {
+        guard let data = try? Data(contentsOf: file(tripId)) else { return [] }
+        return (try? JSONDecoder().decode([TrackPoint].self, from: data)) ?? []
+    }
+
+    static func delete(tripId: String) { try? FileManager.default.removeItem(at: file(tripId)) }
+
+    static func deleteAll() {
+        for url in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
 }
 
 /**

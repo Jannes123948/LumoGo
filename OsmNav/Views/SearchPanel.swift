@@ -83,7 +83,8 @@ struct SearchPanel: View {
         .frame(height: 48)
         .card()
         .onChange(of: focused) { model.searchFocused = $0 }
-        .onChange(of: model.searchFocused) { if !$0 { focused = false } }
+        // Auch umgekehrt: Widget/Siri „Suchen“ setzt den Fokus von außen.
+        .onChange(of: model.searchFocused) { if focused != $0 { focused = $0 } }
     }
 }
 

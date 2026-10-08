@@ -11,8 +11,9 @@ Suche: Nominatim + Overpass.
 
 ## Öffnen & starten
 1. `OsmNav.xcodeproj` in Xcode öffnen (Swift Package „MapLibre“ wird automatisch aufgelöst).
-2. Target **OsmNav** → *Signing & Capabilities* → eigenes Team wählen (für echtes iPhone nötig;
-   ggf. Bundle-ID `com.jannehorst.osmnav` anpassen, falls sie schon vergeben ist).
+2. Targets **OsmNav** UND **LumoGoWidgets** → *Signing & Capabilities* → jeweils eigenes Team wählen
+   (für echtes iPhone nötig; ggf. Bundle-IDs `com.jannehorst.osmnav` / `….osmnav.widgets` anpassen —
+   die Widget-ID muss mit der App-ID beginnen).
 3. Gerät/Simulator wählen → Run (⌘R). Im Simulator Standort über *Features → Location* setzen.
 
 ## Struktur (`OsmNav/`)
@@ -28,7 +29,10 @@ Suche: Nominatim + Overpass.
 | `Offline/` | Offline-Kartenpakete (`MLNOfflineStorage`), Straßennetz + Offline-Router |
 | `Views/` | SwiftUI-Oberflächen |
 
-Das Xcode-Projekt nutzt „synchronisierte Ordner“ (Xcode 16): neue Dateien in `ios/OsmNav/` werden
+Außerdem: `LumoGoWidgets/` = Widget-Erweiterung (Navigation auf Sperrbildschirm/Dynamic Island,
+Schnellzugriff-Widget), `Shared/` = Code für App UND Erweiterung (Live-Aktivitäts-Daten, `lumogo://`-Links).
+
+Das Xcode-Projekt nutzt „synchronisierte Ordner“ (Xcode 16): neue Dateien in `OsmNav/`, `Shared/` und `LumoGoWidgets/` werden
 automatisch mitgebaut, ohne sie im Projekt eintragen zu müssen.
 
 ## Unterschiede zur Android-Version

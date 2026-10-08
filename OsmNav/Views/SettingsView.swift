@@ -557,10 +557,28 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Zoom passt sich dem Tempo an", symbol: "plus.magnifyingglass", color: .green, isOn: $settings.autoZoom)
                 SettingToggle("Fahrstreifen-Empfehlung", symbol: "arrow.up.and.down.and.arrow.left.and.right", color: .blue, isOn: $settings.laneGuidance)
                 SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
+                SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
+                SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht.")
+                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+            }
+            Section {
+                SettingToggle("Strecke aufzeichnen", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .brown, isOn: $settings.recordTracks)
+            } header: {
+                Text("Fahrtenbuch")
+            } footer: {
+                Text("Speichert bei Ankunft die gefahrene Strecke mit Ø- und Höchstgeschwindigkeit — im Fahrtenbuch mit Karte und als GPX-Datei teilbar.")
+            }
+            Section {
+                Label("„Hey Siri, mit LumoGo nach Hause“", systemImage: "house.fill")
+                Label("„Navigiere mit LumoGo zu <Favorit>“", systemImage: "star.fill")
+                Label("„Tankstellen in der Nähe mit LumoGo“", systemImage: "fuelpump.fill")
+            } header: {
+                Text("Siri & Widget")
+            } footer: {
+                Text("Funktioniert ohne Einrichtung, auch in der Kurzbefehle-App. Widget: Homescreen lange drücken → „+“ → LumoGo (auch für den Sperrbildschirm). „Nach Hause“ braucht ein gespeichertes Zuhause in den Favoriten.")
             }
             Section {
                 Picker(selection: $settings.offlineRoadSource) {
@@ -626,10 +644,11 @@ private struct VoiceSettingsPage: View {
                 SettingToggle("Vorankündigungen", symbol: "megaphone.fill", color: .orange, isOn: $settings.preAnnouncements)
                 SettingToggle("„Danach …“-Hinweise", symbol: "arrow.turn.down.right", color: .teal, isOn: $settings.chainAnnouncements)
                 SettingToggle("Musik während Ansagen leiser", symbol: "music.note", color: .red, isOn: $settings.duckMusic)
+                SettingToggle("Lautstärke passt sich dem Tempo an", symbol: "speaker.wave.3.fill", color: .blue, isOn: $settings.speedAdaptiveVolume)
             } header: {
                 Text("Ansagen")
             } footer: {
-                Text("Vorankündigungen: in 1 km, 500 m und 200 m (auf der Autobahn 2 km, 1 km, 500 m).")
+                Text("Vorankündigungen: in 1 km, 500 m und 200 m (auf der Autobahn 2 km, 1 km, 500 m). Lautstärke nach Tempo: in der Stadt etwas leiser, ab 100 km/h volle eingestellte Lautstärke — lauter als die iPhone-Lautstärke geht nicht.")
             }
             .disabled(!settings.voiceEnabled)
         }
@@ -746,8 +765,56 @@ private struct SearchSettingsPage: View {
             } header: {
                 Text("Suche")
             }
+            FuelPriceSection()
         }
         .navigationTitle("Suche & Orte")
+    }
+}
+
+/** Spritpreise über Tankerkönig: eigener Schlüssel, Sorte, Sortierung. */
+private struct FuelPriceSection: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    private var hasKey: Bool { !settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    var body: some View {
+        Section {
+            HStack(spacing: 12) {
+                SettingsIcon(symbol: "key.fill", color: .orange)
+                TextField("API-Schlüssel (kostenlos)", text: $settings.tankerkoenigKey)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.footnote.monospaced())
+                if hasKey {
+                    Button { settings.tankerkoenigKey = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
+                }
+            }
+            if !hasKey {
+                Link(destination: TankerkoenigClient.signupURL) {
+                    Label("Kostenlosen Schlüssel holen", systemImage: "arrow.up.right.square")
+                }
+                Button {
+                    settings.tankerkoenigKey = TankerkoenigClient.demoKey
+                } label: {
+                    Label("Zum Ausprobieren: Demo-Schlüssel", systemImage: "testtube.2")
+                }
+            }
+            Picker(selection: $settings.fuelType) {
+                ForEach(FuelType.allCases) { Text($0.label).tag($0) }
+            } label: {
+                SettingsRow(title: "Sorte", symbol: "fuelpump.fill", color: .green)
+            }
+            .disabled(!hasKey)
+            SettingToggle("Günstigste zuerst", symbol: "eurosign.circle.fill", color: .blue, isOn: $settings.fuelSortByPrice)
+                .disabled(!hasKey)
+        } header: {
+            Text("Spritpreise")
+        } footer: {
+            Text("„In der Nähe“ → Tankstelle zeigt dann die aktuellen Preise (10 km, nur Deutschland). Ohne Schlüssel: Tankstellen aus OpenStreetMap ohne Preise. Der Demo-Schlüssel liefert echte Tankstellen, aber Fantasiepreise. Daten: Tankerkönig / MTS-K, Lizenz CC BY 4.0.")
+        }
     }
 }
 

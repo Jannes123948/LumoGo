@@ -63,6 +63,10 @@ struct ContentView: View {
                     Spacer()
                     rightButtons
                 }
+                if model.navigationActive, let newEta = model.etaShiftedTo {
+                    EtaShiftBanner(newEta: newEta)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 if model.navigationActive {
                     NavBottomBar()
                 } else if !model.waypoints.isEmpty {
@@ -90,7 +94,15 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.2), value: model.toast)
         .animation(.easeInOut(duration: 0.2), value: model.navigationActive)
         .animation(.easeInOut(duration: 0.2), value: showCompass)
+        .animation(.easeInOut(duration: 0.25), value: model.etaShiftedTo)
         .onAppear { model.start() }
+        // Widget, Live-Aktivität (lumogo://…) und Siri-Kurzbefehle.
+        .onOpenURL { model.handle($0) }
+        .onChange(of: model.requestedSheet) { request in
+            guard let request else { return }
+            sheet = request
+            model.requestedSheet = nil
+        }
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .settings: SettingsView(openTrips: { self.sheet = .trips })

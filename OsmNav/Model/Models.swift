@@ -59,9 +59,29 @@ struct Favorite: Codable, Identifiable, Hashable {
 struct Trip: Codable, Identifiable, Hashable {
     let id: String
     let destinationName: String
+    /** Geplante Routenlänge (OSRM). */
     let distanceMeters: Double
     let durationSeconds: Double
     let timestamp: Date
+    // Ab 0.0.3 (optional, damit ältere gespeicherte Fahrten lesbar bleiben):
+    /** Tatsächlich gefahrene Strecke laut GPS. */
+    var drivenMeters: Double? = nil
+    var averageKmh: Double? = nil
+    var maxKmh: Double? = nil
+    /** Strecke liegt in [TripTrackStore] (GPX-Export, Karte). */
+    var hasTrack: Bool? = nil
+}
+
+/** Ein aufgezeichneter Streckenpunkt (kompakt gespeichert). */
+struct TrackPoint: Codable, Hashable {
+    let lat: Double
+    let lon: Double
+    /** Sekunden seit 1970. */
+    let time: Double
+    /** km/h laut GPS, nil = unbekannt. */
+    let kmh: Double?
+
+    var point: LatLon { LatLon(lat, lon) }
 }
 
 // MARK: - OSRM

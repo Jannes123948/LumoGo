@@ -23,8 +23,12 @@ final class AppModel: ObservableObject {
     static let navTilt = 60.0
     static let idle3DTilt = 45.0
 
+    /** Die laufende Instanz — für Siri-Kurzbefehle (App Intents laufen im App-Prozess). */
+    static weak var current: AppModel?
+
     let settings: AppSettings
     let map = MapController()
+    private let liveActivity = LiveActivityController()
     let location = LocationService()
     private let speech = SpeechService()
     private let roadSnapper = RoadSnapper()
@@ -78,6 +82,13 @@ final class AppModel: ObservableObject {
     /** Navigation mit genordeter Karte statt in Fahrtrichtung (Antippen des Kompasses). */
     @Published private(set) var northUpNavigation = false
     @Published var pickingFavoriteLocation = false
+    /** Blatt, das ein Deep Link/Kurzbefehl öffnen will; `.some(nil)` = alle Blätter schließen.
+     *  ContentView setzt es nach dem Anwenden wieder auf nil. */
+    @Published var requestedSheet: ActiveSheet??
+    /** Route zum gesetzten Ziel berechnen + Navigation starten, sobald der erste Standort da ist. */
+    private var pendingAutoNavigation = false
+    /** Geteilte Ankunftszeit hat sich um > 5 min verschoben → Knopf „Neue Ankunftszeit teilen“. */
+    @Published private(set) var etaShiftedTo: String?
 
     // Meldungen
     @Published var toast: String?
@@ -93,9 +104,16 @@ final class AppModel: ObservableObject {
     private var tracker: RouteProgressTracker?
     private var reroutingInProgress = false
     private var navigationStart = Date()
+    /** Gefahrene Strecke der laufenden Navigation (Fahrtenbuch, GPX). */
+    private var trackPoints: [TrackPoint] = []
+    private var trackMaxKmh = 0.0
+    /** Voraussichtliche Ankunft (aus dem HUD) und die zuletzt geteilte. */
+    private var arrivalDate: Date?
+    private var sharedArrival: Date?
 
     init(settings: AppSettings) {
         self.settings = settings
+        Self.current = self
         is3DEnabled = settings.start3D
         map.onLongPress = { [weak self] point in self?.onMapLongPress(point) }
         map.onTap = { [weak self] tap in self?.onMapTap(tap) }
@@ -268,6 +286,10 @@ final class AppModel: ObservableObject {
         }
         showToast("Suche in der Nähe …")
         Task {
+            if category == .fuel, !settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces).isEmpty,
+               await showFuelPrices(center: center) {
+                return
+            }
             do {
                 let places = try await OverpassClient.fetchNearby(center: center, radiusMeters: 15_000, tags: category.tags, fallbackName: category.label)
                 let sorted = places.sorted {
@@ -291,6 +313,37 @@ final class AppModel: ObservableObject {
                 showToast("Umkreissuche fehlgeschlagen.")
             }
         }
+    }
+
+    /**
+     * Tankstellen mit aktuellem Preis (Tankerkönig, 10 km). false = ging nicht (Schlüssel falsch,
+     * kein Netz) — dann sucht [searchNearby] wie ohne Schlüssel in OpenStreetMap.
+     */
+    private func showFuelPrices(center: LatLon) async -> Bool {
+        do {
+            let stations = try await TankerkoenigClient.stations(near: center, radiusKm: 10, fuel: settings.fuelType,
+                                                                 sortByPrice: settings.fuelSortByPrice, apiKey: settings.tankerkoenigKey)
+            guard !stations.isEmpty else { return false }
+            // Bei „nach Preis“ liefert die API nur offene Tankstellen mit Preis; geschlossene ans Ende.
+            let sorted = stations.filter { $0.price != nil } + stations.filter { $0.price == nil }
+            searchResults = sorted.prefix(30).map { station in
+                let name = station.place.map { "\(station.name) (\($0))" } ?? station.name
+                let price = station.priceText.map { "\(settings.fuelType.label) \($0)" } ?? "geschlossen"
+                let distance = FormatUtils.formatDistance(station.distanceKm * 1000)
+                return SearchResult(displayName: "\(name) · \(distance) · \(price)", lat: station.lat, lon: station.lon, boundingBox: nil)
+            }
+            showSearchResults = true
+            showToast(settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces) == TankerkoenigClient.demoKey
+                      ? "Demo-Schlüssel: Tankstellen echt, Preise nicht." : "Preise: Tankerkönig (MTS-K)")
+            return true
+        } catch AppError.server(let message) {
+            showToast("Tankerkönig: \(message) — zeige Tankstellen ohne Preise.")
+        } catch {
+            showToast("Spritpreise nicht erreichbar — zeige Tankstellen ohne Preise.")
+        }
+        // Meldung kurz stehen lassen, bevor die OSM-Suche ihren eigenen Hinweis zeigt.
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
+        return false
     }
 
     // MARK: - Ort-Infos (Tipp auf die Karte)
@@ -444,7 +497,8 @@ final class AppModel: ObservableObject {
 
     // MARK: - Route
 
-    func calculateRoute() {
+    /** [startNavigationAfter] = gleich losnavigieren (Widget/Siri „Nach Hause“). */
+    func calculateRoute(startNavigationAfter: Bool = false) {
         guard !waypoints.isEmpty else {
             showToast("Bitte zuerst ein Ziel wählen.")
             return
@@ -466,6 +520,7 @@ final class AppModel: ObservableObject {
                 selectRoute(0)
                 fitRouteInView(result.routes[0])
                 if result.usedOfflineRouting { showToast("Offline-Route berechnet.") }
+                if startNavigationAfter { startNavigation() }
             } catch let error as OfflineRoutingError {
                 alertMessage = "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)"
             } catch {
@@ -522,6 +577,8 @@ final class AppModel: ObservableObject {
         tracker = newTracker
         navigationActive = true
         navigationStart = Date()
+        trackPoints = []
+        trackMaxKmh = 0
         followEnabled = true
         showSearchResults = false
         // Display während der Navigation anlassen + Standort im Hintergrund weiterlaufen lassen.
@@ -543,10 +600,35 @@ final class AppModel: ObservableObject {
             updateHud(current, newTracker)
             map.ease(center: current, zoom: navZoom(loc.speed), pitch: currentTilt(), heading: cameraHeading())
         }
+        if settings.liveActivityEnabled {
+            liveActivity.start(destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? "Ziel",
+                               backgroundHex: settings.resolvedHudBackgroundHex,
+                               textHex: settings.hudTextHex ?? HexColor.contrastText(on: settings.resolvedHudBackgroundHex),
+                               state: liveActivityState())
+        }
     }
 
-    func stopNavigation() {
+    /** Anzeige für Sperrbildschirm/Dynamic Island — dieselben Texte wie das HUD. */
+    private func liveActivityState() -> NavActivityAttributes.ContentState {
+        let instruction = hud.instruction.isEmpty ? (tracker?.currentInstruction() ?? "") : hud.instruction
+        return NavActivityAttributes.ContentState(
+            distanceText: hud.distanceText,
+            instruction: instruction,
+            symbolName: hud.icon.symbolName,
+            symbolRotation: hud.icon.rotationDegrees,
+            etaText: hud.etaText,
+            remainingText: hud.summaryText,
+            arrived: false
+        )
+    }
+
+    /** [arrived] = am Ziel angekommen (Sperrbildschirm zeigt dann noch kurz „Angekommen“). */
+    func stopNavigation(arrived: Bool = false) {
+        liveActivity.end(arrived: arrived)
         navigationActive = false
+        arrivalDate = nil
+        sharedArrival = nil
+        etaShiftedTo = nil
         tracker = nil
         northUpNavigation = false
         speedLimitTask?.cancel()
@@ -560,13 +642,35 @@ final class AppModel: ObservableObject {
 
     private func logCompletedTrip() {
         guard let route = lastRoute, let destination = waypoints.last?.label else { return }
-        TripHistoryStore.add(Trip(
+        let duration = Date().timeIntervalSince(navigationStart)
+        var trip = Trip(
             id: UUID().uuidString,
             destinationName: destination,
             distanceMeters: route.distance,
-            durationSeconds: Date().timeIntervalSince(navigationStart),
+            durationSeconds: duration,
             timestamp: Date()
-        ))
+        )
+        if settings.recordTracks, trackPoints.count >= 2 {
+            let driven = zip(trackPoints, trackPoints.dropFirst()).reduce(0) { $0 + GeoUtils.distanceMeters($1.0.point, $1.1.point) }
+            trip.drivenMeters = driven
+            trip.averageKmh = duration > 0 ? driven / duration * 3.6 : nil
+            trip.maxKmh = trackMaxKmh
+            trip.hasTrack = true
+            TripTrackStore.save(tripId: trip.id, points: trackPoints)
+        }
+        TripHistoryStore.add(trip)
+    }
+
+    /** Streckenpunkt für das Fahrtenbuch: nur genaue Fixes, frühestens alle 10 m. */
+    private func recordTrackPoint(_ loc: CLLocation) {
+        guard settings.recordTracks, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy < 50 else { return }
+        let kmh = loc.speed >= 0 ? loc.speed * 3.6 : nil
+        // Höchstgeschwindigkeit nur aus gemessener Geschwindigkeit (GPS-Sprünge würden sonst Spitzen erzeugen).
+        if let kmh, loc.speedAccuracy >= 0, loc.speedAccuracy < 3 { trackMaxKmh = max(trackMaxKmh, kmh) }
+        let point = TrackPoint(lat: loc.coordinate.latitude, lon: loc.coordinate.longitude,
+                               time: loc.timestamp.timeIntervalSince1970, kmh: kmh)
+        if let last = trackPoints.last, GeoUtils.distanceMeters(last.point, point.point) < 10 { return }
+        trackPoints.append(point)
     }
 
     private func onLocationUpdate(_ loc: CLLocation) {
@@ -608,6 +712,10 @@ final class AppModel: ObservableObject {
             hasCenteredOnFirstFix = true
             map.ease(center: display, zoom: 16, pitch: currentTilt(), duration: 0)
         }
+        if pendingAutoNavigation {
+            pendingAutoNavigation = false
+            calculateRoute(startNavigationAfter: true)
+        }
 
         guard navigationActive, let tracker else {
             // Freier Modus: nur die eigene Geschwindigkeit (ohne Route gibt es keine Tempolimits).
@@ -616,6 +724,7 @@ final class AppModel: ObservableObject {
             return
         }
 
+        recordTrackPoint(loc)
         announcer.chainEnabled = settings.chainAnnouncements
         if tracker.advanceIfNeeded(display) {
             if let text = announcer.maneuverReached(tracker) { say(text) }
@@ -630,7 +739,7 @@ final class AppModel: ObservableObject {
         if tracker.isFinished && tracker.distanceToNextManeuver(display) < 15 {
             say("Sie haben Ihr Ziel erreicht.")
             logCompletedTrip()
-            stopNavigation()
+            stopNavigation(arrived: true)
             return
         }
 
@@ -751,6 +860,12 @@ final class AppModel: ObservableObject {
         let remainingDuration = tracker.remainingDuration(current)
         // Das gerade angesagte Manöver bleibt sichtbar, bis man es durchfahren hat.
         let (next, distanceToNext) = tracker.displayedManeuver(current)
+        let arrival = Date().addingTimeInterval(remainingDuration)
+        arrivalDate = arrival
+        if settings.etaSharePrompt, let shared = sharedArrival, abs(arrival.timeIntervalSince(shared)) > 5 * 60 {
+            let text = FormatUtils.formatEta(remainingDuration)
+            if etaShiftedTo != text { etaShiftedTo = text }
+        }
         hud = NavHudState(
             distanceText: FormatUtils.formatDistance(distanceToNext),
             instruction: next.instruction,
@@ -760,6 +875,37 @@ final class AppModel: ObservableObject {
             // Spurempfehlung erst kurz vor der Abzweigung (wie Google Maps).
             lanes: settings.laneGuidance && distanceToNext <= 400 ? (next.lanes ?? []) : []
         )
+        if navigationActive { liveActivity.update(liveActivityState()) }
+    }
+
+    // MARK: - Ankunftszeit teilen
+
+    /** „Ich bin voraussichtlich um 17:42 in … (noch 12 km).“ + Kartenlink zum Ziel. */
+    private func etaShareText() -> String? {
+        guard navigationActive, let arrival = arrivalDate, let destination = waypoints.last else { return nil }
+        let time = arrival.formatted(date: .omitted, time: .shortened)
+        let name = destination.label.components(separatedBy: ",").first ?? destination.label
+        let rest = hud.summaryText.components(separatedBy: " · ").first.map { " (noch \($0))" } ?? ""
+        let p = destination.point
+        let link = String(format: "https://www.openstreetmap.org/?mlat=%.5f&mlon=%.5f#map=17/%.5f/%.5f", p.latitude, p.longitude, p.latitude, p.longitude)
+        return "Ich bin voraussichtlich um \(time) in \(name)\(rest).\n\(link)"
+    }
+
+    /** Teilen-Menü; nur wenn wirklich geteilt wurde, gilt die Zeit als „geteilt“ (für den Verschiebe-Hinweis). */
+    func shareEta() {
+        guard let text = etaShareText() else { return }
+        let arrival = arrivalDate
+        ShareSheet.present(items: [text]) { [weak self] completed in
+            guard let self, completed else { return }
+            self.sharedArrival = arrival
+            self.etaShiftedTo = nil
+        }
+    }
+
+    func dismissEtaShift() {
+        // Hinweis weg; erst bei weiteren 5 Minuten Verschiebung (ab jetzt) wieder.
+        sharedArrival = arrivalDate
+        etaShiftedTo = nil
     }
 
     // MARK: - Sprachausgabe
@@ -770,10 +916,24 @@ final class AppModel: ObservableObject {
             text,
             voiceIdentifier: settings.voiceIdentifier.isEmpty ? nil : settings.voiceIdentifier,
             rate: settings.speechRate,
-            volume: settings.speechVolume,
+            volume: settings.speechVolume * (force ? 1 : speedVolumeFactor),
             duckOthers: settings.duckMusic,
             interrupt: interrupt
         )
+    }
+
+    /**
+     * Lautstärke nach Tempo (nur Navigation): Apps können die Systemlautstärke nicht anheben —
+     * deshalb unter 30 km/h 75 % der eingestellten Lautstärke, ab 100 km/h 100 %, dazwischen gleitend.
+     */
+    private var speedVolumeFactor: Float {
+        guard settings.speedAdaptiveVolume, navigationActive, let kmh = speedKmh else { return 1 }
+        return Self.speedVolumeFactor(kmh: kmh)
+    }
+
+    static func speedVolumeFactor(kmh: Int) -> Float {
+        let t = min(max((Float(kmh) - 30) / 70, 0), 1)
+        return 0.75 + 0.25 * t
     }
 
     /** Hörprobe für die Einstellungen (auch wenn Ansagen aus sind). */
@@ -868,6 +1028,58 @@ final class AppModel: ObservableObject {
             FavoritesStore.add(name: finalName, point: point)
         }
         showToast(asHome ? "Als Zuhause gespeichert." : "Favorit gespeichert.")
+    }
+
+    // MARK: - Widget, Live-Aktivität, Siri
+
+    /** `lumogo://…` aus Widget oder Live-Aktivität. */
+    func handle(_ url: URL) {
+        guard let link = DeepLink(url: url) else { return }
+        handle(link)
+    }
+
+    func handle(_ link: DeepLink) {
+        switch link {
+        case .home:
+            guard let home = FavoritesStore.home() else {
+                showToast("Noch kein Zuhause gespeichert — in den Favoriten festlegen.")
+                requestedSheet = .some(.favorites)
+                return
+            }
+            navigateNow(to: home)
+        case .favorite(let id):
+            guard let favorite = FavoritesStore.list().first(where: { $0.id == id }) else {
+                showToast("Diesen Favoriten gibt es nicht mehr.")
+                return
+            }
+            navigateNow(to: favorite)
+        case .favorites:
+            requestedSheet = .some(.favorites)
+        case .search:
+            if navigationActive { return }
+            requestedSheet = .some(nil)
+            searchFocused = true
+        case .nearbyFuel:
+            if navigationActive { return }
+            searchNearby(.fuel)
+        case .open:
+            break
+        }
+    }
+
+    /** Ziel ersetzen, Route berechnen und sofort losnavigieren (Widget „Nach Hause“, Siri). */
+    func navigateNow(to favorite: Favorite) {
+        if navigationActive { stopNavigation() }
+        requestedSheet = .some(nil)
+        clearSearch()
+        waypoints = []
+        addDestination(favorite.point, label: favorite.name)
+        if currentPosition == nil {
+            pendingAutoNavigation = true
+            showToast("Warte auf den Standort …")
+        } else {
+            calculateRoute(startNavigationAfter: true)
+        }
     }
 
     func navigateToFavorite(_ favorite: Favorite) {

@@ -137,18 +137,35 @@ struct TripHistoryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var trips = TripHistoryStore.list()
 
+    /** „8. Okt. 2026, 17:42 · 12,3 km · 18 Min. · Ø 41 km/h“ */
+    static func summary(_ trip: Trip) -> String {
+        var parts = [trip.timestamp.formatted(date: .abbreviated, time: .shortened),
+                     FormatUtils.formatDistance(trip.drivenMeters ?? trip.distanceMeters),
+                     FormatUtils.formatDuration(trip.durationSeconds)]
+        if let avg = trip.averageKmh { parts.append("Ø \(Int(avg.rounded())) km/h") }
+        return parts.joined(separator: " · ")
+    }
+
     var body: some View {
         NavigationStack {
             List {
                 if trips.isEmpty {
-                    Text("Noch keine Fahrten. Fahrten werden nur bei tatsächlicher Ankunft gespeichert.")
+                    Text("Noch keine Fahrten. Fahrten werden nur bei tatsächlicher Ankunft gespeichert — mit Strecke, wenn „Strecke aufzeichnen“ an ist (Einstellungen → Navigation).")
                         .foregroundStyle(.secondary)
                 }
                 ForEach(trips) { trip in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(trip.destinationName).font(.headline).lineLimit(2)
-                        Text("\(trip.timestamp.formatted(date: .abbreviated, time: .shortened)) · \(FormatUtils.formatDistance(trip.distanceMeters)) · \(FormatUtils.formatDuration(trip.durationSeconds))")
-                            .font(.caption).foregroundStyle(.secondary)
+                    NavigationLink {
+                        TripDetailView(trip: trip)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text(trip.destinationName).font(.headline).lineLimit(2)
+                                if trip.hasTrack == true {
+                                    Image(systemName: "point.topleft.down.curvedto.point.bottomright.up").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            Text(Self.summary(trip)).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
                 .onDelete { offsets in

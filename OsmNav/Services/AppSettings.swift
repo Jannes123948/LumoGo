@@ -263,8 +263,21 @@ final class AppSettings: ObservableObject {
     @Published var chainAnnouncements: Bool { didSet { defaults.set(chainAnnouncements, forKey: "chain_announcements") } }
     @Published var duckMusic: Bool { didSet { defaults.set(duckMusic, forKey: "duck_music") } }
 
+    /** Navigation auf Sperrbildschirm + Dynamic Island (Live-Aktivität). */
+    @Published var liveActivityEnabled: Bool { didSet { defaults.set(liveActivityEnabled, forKey: "live_activity") } }
+    /** Nach dem Teilen der Ankunftszeit erinnern, wenn sie sich um > 5 min verschiebt. */
+    @Published var etaSharePrompt: Bool { didSet { defaults.set(etaSharePrompt, forKey: "eta_share_prompt") } }
+    /** Gefahrene Strecke + Tempo im Fahrtenbuch speichern (GPX-Export). */
+    @Published var recordTracks: Bool { didSet { defaults.set(recordTracks, forKey: "record_tracks") } }
+    /** Ansagen in der Stadt etwas leiser, auf der Autobahn voll laut. */
+    @Published var speedAdaptiveVolume: Bool { didSet { defaults.set(speedAdaptiveVolume, forKey: "speed_volume") } }
+
     // Suche & Orte
     @Published var showOpenStatus: Bool { didSet { defaults.set(showOpenStatus, forKey: "show_open_status") } }
+    /** Eigener Tankerkönig-API-Schlüssel; leer = Tankstellen ohne Preise (OpenStreetMap). */
+    @Published var tankerkoenigKey: String { didSet { defaults.set(tankerkoenigKey, forKey: "tankerkoenig_key") } }
+    @Published var fuelType: FuelType { didSet { defaults.set(fuelType.rawValue, forKey: "fuel_type") } }
+    @Published var fuelSortByPrice: Bool { didSet { defaults.set(fuelSortByPrice, forKey: "fuel_sort_price") } }
 
     init() {
         mapEngine = MapEngine(rawValue: defaults.string(forKey: "map_engine") ?? "") ?? .vector
@@ -315,6 +328,13 @@ final class AppSettings: ObservableObject {
         chainAnnouncements = defaults.object(forKey: "chain_announcements") as? Bool ?? true
         duckMusic = defaults.object(forKey: "duck_music") as? Bool ?? true
         showOpenStatus = defaults.object(forKey: "show_open_status") as? Bool ?? true
+        liveActivityEnabled = defaults.object(forKey: "live_activity") as? Bool ?? true
+        etaSharePrompt = defaults.object(forKey: "eta_share_prompt") as? Bool ?? true
+        recordTracks = defaults.object(forKey: "record_tracks") as? Bool ?? true
+        speedAdaptiveVolume = defaults.object(forKey: "speed_volume") as? Bool ?? true
+        tankerkoenigKey = defaults.string(forKey: "tankerkoenig_key") ?? ""
+        fuelType = FuelType(rawValue: defaults.string(forKey: "fuel_type") ?? "") ?? .e10
+        fuelSortByPrice = defaults.object(forKey: "fuel_sort_price") as? Bool ?? true
     }
 
     // MARK: - Farben
@@ -354,7 +374,7 @@ final class AppSettings: ObservableObject {
         return UInt32(value)
     }
 
-    /** Alle Einstellungen auf Werkseinstellung (Favoriten, Verlauf, Fahrtenbuch bleiben). */
+    /** Alle Einstellungen auf Werkseinstellung (Favoriten, Verlauf, Fahrtenbuch, Tankerkönig-Schlüssel bleiben). */
     func resetAll() {
         mapEngine = .vector
         mapTheme = .system
@@ -396,5 +416,12 @@ final class AppSettings: ObservableObject {
         chainAnnouncements = true
         duckMusic = true
         showOpenStatus = true
+        liveActivityEnabled = true
+        etaSharePrompt = true
+        recordTracks = true
+        speedAdaptiveVolume = true
+        fuelType = .e10
+        fuelSortByPrice = true
+        // Der Tankerkönig-Schlüssel bleibt (ist eher ein Zugangsdatum als eine Einstellung).
     }
 }
