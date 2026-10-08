@@ -99,10 +99,26 @@ struct LumoGoShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: NavigateHomeIntent(),
+            // Siri vergleicht fast wörtlich — „Zuhause“ statt „nach Hause“ passte vorher nicht
+            // (Nutzermeldung: „LumoGo unterstützt das nicht“). Deshalb viele Varianten.
             phrases: [
                 "Mit \(.applicationName) nach Hause",
+                "Mit \(.applicationName) nach Zuhause",
+                "Mit \(.applicationName) zuhause",
+                "Mit \(.applicationName) heim",
                 "Navigiere mit \(.applicationName) nach Hause",
-                "\(.applicationName) nach Hause"
+                "Navigiere mit \(.applicationName) nach Zuhause",
+                "Navigiere mit \(.applicationName) zu mir nach Hause",
+                "Fahr mich mit \(.applicationName) nach Hause",
+                "Bring mich mit \(.applicationName) nach Hause",
+                "\(.applicationName) nach Hause",
+                "\(.applicationName) Zuhause",
+                "\(.applicationName) heim",
+                "\(.applicationName) navigiere nach Hause",
+                "\(.applicationName) bring mich nach Hause",
+                "Nach Hause mit \(.applicationName)",
+                "Zuhause mit \(.applicationName)",
+                "Heimweg mit \(.applicationName)"
             ],
             shortTitle: "Nach Hause",
             systemImageName: "house.fill"
@@ -111,7 +127,13 @@ struct LumoGoShortcuts: AppShortcutsProvider {
             intent: NavigateToFavoriteIntent(),
             phrases: [
                 "Navigiere mit \(.applicationName) zu \(\.$favorite)",
-                "Mit \(.applicationName) zu \(\.$favorite)"
+                "Mit \(.applicationName) zu \(\.$favorite)",
+                "Mit \(.applicationName) nach \(\.$favorite)",
+                "Fahr mich mit \(.applicationName) zu \(\.$favorite)",
+                "Bring mich mit \(.applicationName) zu \(\.$favorite)",
+                "\(.applicationName) navigiere zu \(\.$favorite)",
+                "\(.applicationName) zu \(\.$favorite)",
+                "\(.applicationName) \(\.$favorite)"
             ],
             shortTitle: "Zu Favorit",
             systemImageName: "star.fill"
@@ -120,14 +142,18 @@ struct LumoGoShortcuts: AppShortcutsProvider {
             intent: FindFuelIntent(),
             phrases: [
                 "Tankstellen in der Nähe mit \(.applicationName)",
-                "Wo kann ich tanken mit \(.applicationName)"
+                "Wo kann ich tanken mit \(.applicationName)",
+                "\(.applicationName) Tankstellen",
+                "\(.applicationName) tanken",
+                "\(.applicationName) Spritpreise",
+                "Spritpreise mit \(.applicationName)"
             ],
             shortTitle: "Tankstellen",
             systemImageName: "fuelpump.fill"
         )
         AppShortcut(
             intent: OpenSearchIntent(),
-            phrases: ["Suche in \(.applicationName)", "\(.applicationName) Suche"],
+            phrases: ["Suche in \(.applicationName)", "Suche mit \(.applicationName)", "\(.applicationName) Suche", "\(.applicationName) suchen"],
             shortTitle: "Suchen",
             systemImageName: "magnifyingglass"
         )
