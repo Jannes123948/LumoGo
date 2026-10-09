@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveSheet: String, Identifiable {
-    case settings, favorites, nearby, trips, offline, alongRoute
+    case settings, favorites, nearby, trips, offline, alongRoute, weather
     var id: String { rawValue }
 }
 
@@ -11,6 +11,9 @@ struct ContentView: View {
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.colorScheme) private var colorScheme
     @State private var sheet: ActiveSheet?
+
+    /** Pfeil steht fest unten im Bild → Namensleiste direkt darunter; sonst über der Ankunftsleiste. */
+    private var roadNameUnderPuck: Bool { settings.navPuckLow && model.followEnabled }
 
     var body: some View {
         ZStack {
@@ -67,6 +70,11 @@ struct ContentView: View {
                     EtaShiftBanner(newEta: newEta)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+                if model.navigationActive, !roadNameUnderPuck, let road = model.hud.roadName {
+                    RoadNamePill(name: road)
+                        .frame(maxWidth: .infinity)
+                        .transition(.opacity)
+                }
                 if model.navigationActive {
                     NavBottomBar()
                 } else if !model.waypoints.isEmpty {
@@ -75,6 +83,21 @@ struct ContentView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
+
+            // Straßenname direkt unter dem Pfeil (wie Google Maps) — die Kamera hält den Pfeil beim
+            // Folgen fest an derselben Bildschirmstelle (MapController.setPuckLow).
+            if model.navigationActive, roadNameUnderPuck, let road = model.hud.roadName {
+                GeometryReader { geo in
+                    RoadNamePill(name: road)
+                        .frame(maxWidth: geo.size.width - 120)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .position(x: geo.size.width / 2,
+                                  y: geo.size.height * MapController.puckLowScreenFraction + MapController.puckLabelOffset + 18)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
 
             if let toast = model.toast {
                 VStack {
@@ -111,6 +134,7 @@ struct ContentView: View {
             case .trips: TripHistoryView()
             case .offline: OfflineMapsView()
             case .alongRoute: AlongRouteSheet()
+            case .weather: WeatherSheet()
             }
         }
         .sheet(item: $model.poiSelection) { _ in
@@ -149,6 +173,10 @@ struct ContentView: View {
             if showCompass {
                 CompassButton(direction: model.mapDirection, northUp: model.northUpNavigation) { model.compassTapped() }
                     .transition(.scale.combined(with: .opacity))
+            }
+            if settings.weatherButton {
+                MapButton(symbol: "cloud.sun.fill") { sheet = .weather }
+                    .accessibilityLabel("Wetter")
             }
             if settings.mapEngine.supports3D {
                 MapButton(text: model.is3DEnabled ? "2D" : "3D") { model.toggle3D() }

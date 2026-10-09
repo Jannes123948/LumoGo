@@ -84,6 +84,33 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private var routes: [[LatLon]] = []
     private var selectedRouteIndex = 0
     private var puck: (LatLon, Double)?
+
+    // Flüssiger Pfeil (siehe updatePuck)
+    var smoothPuck = true
+    private struct CameraFollow {
+        let fromZoom: Double, fromPitch: Double, fromHeading: Double
+        let toZoom: Double?, toPitch: Double?, toHeading: Double?
+    }
+    private struct PuckAnimation {
+        let from: LatLon, to: LatLon
+        let fromHeading: Double, toHeading: Double
+        let start: CFTimeInterval, duration: CFTimeInterval
+        var camera: CameraFollow?
+    }
+    private var puckAnimation: PuckAnimation?
+    private var displayLink: CADisplayLink?
+    private var lastPuckFix: CFTimeInterval = 0
+    /** Gerade gezeichnete (ggf. Zwischen-)Position des Pfeils. */
+    private var drawnPuck: (LatLon, Double)?
+    /** Weiter als das (GPS-Sprung, Neustart) springt der Pfeil direkt. */
+    private static let maxGlideMeters = 150.0
+    /** Anteil der Kartenhöhe, um den der Mittelpunkt in der Navigation nach unten rückt (Pfeil bei ≈ 70 %). */
+    private static let puckLowInsetFraction = 0.4
+    /** Wo der Pfeil dann auf dem Bildschirm steht (Mitte des eingerückten Bereichs) — für die
+     *  Straßennamen-Leiste direkt darunter. */
+    static let puckLowScreenFraction = puckLowInsetFraction + (1 - puckLowInsetFraction) / 2
+    /** Halbe Pfeilgröße + Abstand: so weit unter der Pfeilmitte beginnt die Namensleiste. */
+    static let puckLabelOffset: CGFloat = 23 + 8
     private var selectedPoi: LatLon?
     private var tourTrack: [LatLon] = []
 
@@ -178,6 +205,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     func mapView(_ mapView: MLNMapView, regionWillChangeWith reason: MLNCameraChangeReason, animated: Bool) {
         let gestures: MLNCameraChangeReason = [.gesturePan, .gesturePinch, .gestureRotate, .gestureZoomIn, .gestureZoomOut, .gestureOneFingerZoom, .gestureTilt]
         if !reason.intersection(gestures).isEmpty {
+            puckAnimation?.camera = nil
             onUserGesture?()
         }
     }
@@ -415,13 +443,111 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         source.shape = MLNPolylineFeature(coordinates: &coords, count: UInt(coords.count))
     }
 
+    /**
+     * Neue Pfeil-Position. Mit [smoothPuck] gleitet der Pfeil Bild für Bild dorthin, und zwar so lange,
+     * wie der letzte GPS-Fix her ist — beim nächsten Fix ist er gerade angekommen, er bleibt also nie
+     * stehen und springt nie (vorher: Sprung je Fix + 1-s-Kamerafahrt hinterher = Ruckeln).
+     */
     func updatePuck(_ position: LatLon, heading: Double) {
         puck = (position, heading)
+        let now = CACurrentMediaTime()
+        let interval = now - lastPuckFix
+        lastPuckFix = now
+        guard smoothPuck, mapView != nil, let (from, fromHeading) = drawnPuck,
+              GeoUtils.distanceMeters(from, position) < Self.maxGlideMeters else {
+            stopPuckAnimation()
+            drawPuck(position, heading: heading)
+            return
+        }
+        puckAnimation = PuckAnimation(
+            from: from, to: position, fromHeading: fromHeading, toHeading: heading,
+            start: now, duration: min(max(interval, 0.2), 1.2), camera: nil
+        )
+        if displayLink == nil {
+            let link = CADisplayLink(target: self, selector: #selector(stepPuckAnimation(_:)))
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+    }
+
+    /**
+     * Kamera folgt dem Pfeil. Gleitet er gerade, fährt die Kamera Bild für Bild mit (Pfeil bleibt an
+     * seiner Bildschirmstelle), sonst wie bisher per [ease].
+     */
+    func followPuck(zoom: Double? = nil, pitch: Double? = nil, heading: Double? = nil) {
+        guard let mapView else { return }
+        if var animation = puckAnimation {
+            animation.camera = CameraFollow(
+                fromZoom: mapView.zoomLevel, fromPitch: Double(mapView.camera.pitch), fromHeading: mapView.direction,
+                toZoom: zoom, toPitch: pitch, toHeading: heading
+            )
+            puckAnimation = animation
+        } else if let (position, _) = puck {
+            ease(center: position, zoom: zoom, pitch: pitch, heading: heading)
+        }
+    }
+
+    /** Pfeil in der Navigation weiter unten im Bild (wie Google Maps) — mehr Strecke voraus sichtbar. */
+    func setPuckLow(_ low: Bool) {
+        guard let mapView else { return }
+        if low {
+            mapView.automaticallyAdjustsContentInset = false
+            let top = mapView.bounds.height * Self.puckLowInsetFraction
+            mapView.setContentInset(UIEdgeInsets(top: top, left: 0, bottom: 0, right: 0), animated: true, completionHandler: nil)
+        } else if !mapView.automaticallyAdjustsContentInset {
+            mapView.setContentInset(.zero, animated: true, completionHandler: nil)
+            mapView.automaticallyAdjustsContentInset = true
+        }
+    }
+
+    private func drawPuck(_ position: LatLon, heading: Double) {
+        drawnPuck = (position, heading)
         guard let source = style?.source(withIdentifier: Self.puckSourceId) as? MLNShapeSource else { return }
         let feature = MLNPointFeature()
         feature.coordinate = position.coordinate
         feature.attributes = ["heading": heading]
         source.shape = feature
+    }
+
+    @objc private func stepPuckAnimation(_ link: CADisplayLink) {
+        guard let animation = puckAnimation else {
+            stopPuckAnimation()
+            return
+        }
+        // Linear: der Pfeil fährt mit gleichmäßigem Tempo von Fix zu Fix (kein Abbremsen je Fix).
+        let t = min(1, (CACurrentMediaTime() - animation.start) / animation.duration)
+        let position = LatLon(
+            animation.from.latitude + (animation.to.latitude - animation.from.latitude) * t,
+            animation.from.longitude + (animation.to.longitude - animation.from.longitude) * t
+        )
+        drawPuck(position, heading: Self.interpolateAngle(animation.fromHeading, animation.toHeading, t))
+        if let camera = animation.camera, let mapView, mapView.bounds.height > 0 {
+            let zoom = camera.fromZoom + ((camera.toZoom ?? camera.fromZoom) - camera.fromZoom) * t
+            let pitch = camera.fromPitch + ((camera.toPitch ?? camera.fromPitch) - camera.fromPitch) * t
+            let heading = Self.interpolateAngle(camera.fromHeading, camera.toHeading ?? camera.fromHeading, t)
+            mapView.setCamera(MLNMapCamera(
+                lookingAtCenter: position.coordinate,
+                altitude: Self.altitude(forZoom: zoom, pitch: pitch, latitude: position.latitude, viewHeight: Double(mapView.bounds.height)),
+                pitch: CGFloat(pitch),
+                heading: heading
+            ), animated: false)
+        }
+        if t >= 1 { stopPuckAnimation() }
+    }
+
+    private func stopPuckAnimation() {
+        puckAnimation = nil
+        displayLink?.invalidate()
+        displayLink = nil
+    }
+
+    /** Kürzester Weg zwischen zwei Richtungen (350° → 10° dreht über Norden, nicht zurück). */
+    private static func interpolateAngle(_ from: Double, _ to: Double, _ t: Double) -> Double {
+        var delta = (to - from).truncatingRemainder(dividingBy: 360)
+        if delta > 180 { delta -= 360 }
+        if delta < -180 { delta += 360 }
+        let result = (from + delta * t).truncatingRemainder(dividingBy: 360)
+        return result < 0 ? result + 360 : result
     }
 
     func setSelectedPoi(_ point: LatLon?) {
@@ -441,7 +567,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         setSelectedPoi(selectedPoi)
         setTourTrack(tourTrack)
         setRoutes(routes, selected: selectedRouteIndex)
-        if let (position, heading) = puck { updatePuck(position, heading: heading) }
+        if let (position, heading) = drawnPuck ?? puck { drawPuck(position, heading: heading) }
     }
 
     // MARK: - Kamera
@@ -456,6 +582,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     /** Animierte Kamerafahrt; nicht gesetzte Werte bleiben wie aktuell. */
     func ease(center: LatLon? = nil, zoom: Double? = nil, pitch: Double? = nil, heading: Double? = nil, duration: TimeInterval = 1) {
         guard let mapView, mapView.bounds.height > 0 else { return }
+        puckAnimation?.camera = nil // sonst überschreibt das nächste Bild die Kamerafahrt
         let target = center?.coordinate ?? mapView.centerCoordinate
         let p = pitch ?? Double(mapView.camera.pitch)
         let z = zoom ?? mapView.zoomLevel

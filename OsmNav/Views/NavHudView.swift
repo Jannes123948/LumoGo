@@ -183,3 +183,21 @@ struct SpeedLimitSign: View {
         .accessibilityLabel(limit.kmhValue.map { "Tempolimit \($0)" } ?? "Kein Tempolimit")
     }
 }
+
+/** Name der aktuellen Straße unten mittig (wie bei Google Maps). */
+struct RoadNamePill: View {
+    let name: String
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Text(name)
+            .font(.system(size: settings.largeHud ? 20 : 17, weight: .semibold))
+            .lineLimit(1)
+            .foregroundStyle(settings.hudText)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .glassSurface(Capsule(), tint: settings.hudBackground.opacity(settings.hudOpacity),
+                          fallback: settings.hudBackground.opacity(settings.hudOpacity), shadowRadius: 4)
+            .animation(.easeInOut(duration: 0.2), value: name)
+    }
+}

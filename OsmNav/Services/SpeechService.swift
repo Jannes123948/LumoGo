@@ -65,6 +65,7 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
      *  gegenseitig abschneiden. */
     func speak(_ text: String, voiceIdentifier: String? = nil, rate: Float = SpeechService.defaultRate,
                volume: Float = 1, duckOthers: Bool = true, interrupt: Bool = false) {
+        releaseGeneration += 1
         if interrupt && synthesizer.isSpeaking {
             synthesizer.stopSpeaking(at: .immediate)
         }
@@ -83,7 +84,34 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        guard !synthesizer.isSpeaking else { return }
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        Task { @MainActor in self.scheduleRelease() }
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        Task { @MainActor in self.scheduleRelease() }
+    }
+
+    // MARK: - Musik wieder lauter
+
+    /** Zählt hoch bei jeder neuen Ansage — eine geplante Freigabe gilt nur, wenn seitdem nichts kam. */
+    private var releaseGeneration = 0
+
+    /**
+     * Audio-Session freigeben, damit die Musik wieder lauter wird. NICHT direkt im didFinish: dort
+     * meldet `isSpeaking` oft noch true (Freigabe wurde übersprungen → Musik blieb leise,
+     * Nutzermeldung), und `setActive(false)` scheitert, solange die Ausgabe noch läuft. Deshalb kurz
+     * warten, dann prüfen; scheitert es trotzdem, noch zweimal versuchen.
+     */
+    private func scheduleRelease(attempt: Int = 0) {
+        let generation = releaseGeneration
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: attempt == 0 ? 300_000_000 : 700_000_000)
+            guard generation == self.releaseGeneration, !self.synthesizer.isSpeaking else { return }
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            } catch {
+                if attempt < 2 { self.scheduleRelease(attempt: attempt + 1) }
+            }
+        }
     }
 }

@@ -31,6 +31,9 @@ final class RouteProgressTracker {
     /** Strecke vom Routenstart bis zu Routenpunkt `i`. */
     private let cumulativePointDistance: [Double]
     private let averageSpeedMps: Double
+    /** Straßenname je Abschnitt (aus den UNzusammengefassten Schritten — die Zusammenfassung
+     *  verschluckt Namenswechsel ohne Abbiegen), mit Startstrecke ab Routenbeginn. */
+    private let roadNames: [(start: Double, name: String)]
 
     /** Lage einer Position relativ zur Routenlinie (Lot, Segment, Abstand, zurückgelegte Strecke). */
     private struct Located {
@@ -76,6 +79,30 @@ final class RouteProgressTracker {
         }
         cumulativePointDistance = routePoints.isEmpty ? [] : pointDistances
         averageSpeedMps = route.duration > 0 ? route.distance / route.duration : 0
+        var roadStart = 0.0
+        roadNames = route.legs.flatMap(\.steps).compactMap { step in
+            defer { roadStart += step.distance }
+            guard step.maneuver.type != "arrive" else { return nil }
+            return (roadStart, RouteProgressTracker.roadLabel(step))
+        }
+    }
+
+    /** „Leipziger Straße“, „A 4“ oder „B 6 · Leipziger Straße“; leer = unbenannt. */
+    static func roadLabel(_ step: OsrmStep) -> String {
+        let name = step.name.trimmingCharacters(in: .whitespaces)
+        let ref = (step.ref ?? "").components(separatedBy: ";").first?.trimmingCharacters(in: .whitespaces) ?? ""
+        if name.isEmpty { return ref }
+        if ref.isEmpty || name.contains(ref) { return name }
+        return "\(ref) · \(name)"
+    }
+
+    /** Straße, auf der man gerade fährt (wie die Namensleiste unten bei Google Maps); nil = unbenannt. */
+    func currentRoadName(_ current: LatLon) -> String? {
+        let traveled = traveledDistanceAlongRoute(current)
+        // 5 m Puffer: erst NACH dem Abbiegen den neuen Namen zeigen.
+        let entry = roadNames.last { $0.start + 5 <= traveled } ?? roadNames.first
+        guard let name = entry?.name, !name.isEmpty else { return nil }
+        return name
     }
 
     var isFinished: Bool { currentStepIndex >= steps.count - 1 }
@@ -317,8 +344,28 @@ final class RouteProgressTracker {
         return merged
     }
 
-    /** Anweisungstexte für die Routenvorschau — dieselbe Zusammenfassung wie während der Navigation. */
-    static func previewInstructions(_ route: OsrmRoute) -> [String] {
-        mergeSteps(route).map { $0.0.instruction }
+    /** Anweisungen für die Routenvorschau — dieselbe Zusammenfassung wie während der Navigation. */
+    static func previewInstructions(_ route: OsrmRoute) -> [PreviewInstruction] {
+        var startMeters = 0.0
+        return mergeSteps(route).map { step, _ in
+            let item = PreviewInstruction(
+                text: step.instruction,
+                icon: ManeuverIconResolver.resolve(type: step.maneuverType, modifier: step.maneuverModifier),
+                startMeters: startMeters,
+                distance: step.distance
+            )
+            startMeters += step.distance
+            return item
+        }
     }
+}
+
+/** Eine Zeile der Anweisungsliste: Symbol, Text, Position auf der Route und Strecke bis zum nächsten Manöver. */
+struct PreviewInstruction {
+    let text: String
+    let icon: ManeuverIconResolver.Icon
+    /** Entfernung vom Routenstart bis zu diesem Manöver. */
+    let startMeters: Double
+    /** Strecke ab diesem Manöver bis zum nächsten. */
+    let distance: Double
 }

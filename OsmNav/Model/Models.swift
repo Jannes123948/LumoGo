@@ -115,6 +115,8 @@ struct OsrmStep {
     let exits: String?
     /** Fahrstreifen an der Kreuzung dieses Schritts (links->rechts), nur bei `turn:lanes` in OSM. */
     let lanes: [OsrmLane]?
+    /** Straßennummer („A 4“, „B 6“), nur online (OSRM `ref`). */
+    var ref: String? = nil
 }
 
 struct OsrmLane: Hashable {

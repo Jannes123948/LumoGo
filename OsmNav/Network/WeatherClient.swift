@@ -80,6 +80,18 @@ enum WeatherClient {
             return (AlongRouteSearch.point(at: along, on: line, cumulative: cumulative), along,
                     departure.addingTimeInterval(durationSeconds * fraction))
         }
+        return RouteWeather(points: try await fetch(samples))
+    }
+
+    /** Wetter am Standort jetzt und in einer Stunde (Wetter-Knopf). */
+    static func here(_ point: LatLon, now: Date = Date()) async throws -> (now: RouteWeatherPoint, inOneHour: RouteWeatherPoint) {
+        let points = try await fetch([(point, 0, now), (point, 0, now.addingTimeInterval(3600))])
+        guard points.count == 2 else { throw AppError.noResults }
+        return (points[0], points[1])
+    }
+
+    /** Eine Anfrage für alle Punkte; je Punkt die Stunde, in die seine Zeit fällt. */
+    private static func fetch(_ samples: [(point: LatLon, along: Double, time: Date)]) async throws -> [RouteWeatherPoint] {
         let url = HTTP.url("https://api.open-meteo.com/v1/forecast", [
             ("latitude", samples.map { String(format: "%.4f", $0.point.latitude) }.joined(separator: ",")),
             ("longitude", samples.map { String(format: "%.4f", $0.point.longitude) }.joined(separator: ",")),
@@ -116,7 +128,7 @@ enum WeatherClient {
             )
         }
         guard !points.isEmpty else { throw AppError.noResults }
-        return RouteWeather(points: points)
+        return points
     }
 
     private struct Forecast: Decodable {

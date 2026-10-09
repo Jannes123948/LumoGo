@@ -548,6 +548,7 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Alternativrouten anbieten", symbol: "arrow.triangle.branch", color: .teal, isOn: $settings.alternativeRoutes)
                 SettingToggle("Routenvorschau", symbol: "list.bullet.rectangle.fill", color: .indigo, isOn: $settings.routePreviewEnabled)
                 SettingToggle("Wetter auf der Route", symbol: "cloud.sun.fill", color: .cyan, isOn: $settings.routeWeather)
+                SettingToggle("Wetter-Knopf auf der Karte", symbol: "cloud.sun.rain.fill", color: .blue, isOn: $settings.weatherButton)
                 SettingToggle("GPX-Spur auf der Karte", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .orange, isOn: $settings.showTourTrack)
             } header: {
                 Text("Route")
@@ -574,6 +575,9 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Display bleibt an", symbol: "sun.max.fill", color: .yellow, isOn: $settings.keepScreenOn)
                 SettingToggle("Zoom passt sich dem Tempo an", symbol: "plus.magnifyingglass", color: .green, isOn: $settings.autoZoom)
                 SettingToggle("Fahrstreifen-Empfehlung", symbol: "arrow.up.and.down.and.arrow.left.and.right", color: .blue, isOn: $settings.laneGuidance)
+                SettingToggle("Pfeil flüssig bewegen", symbol: "hare.fill", color: .mint, isOn: $settings.smoothPuck)
+                SettingToggle("Pfeil unten im Bild", symbol: "arrow.down.to.line", color: .cyan, isOn: $settings.navPuckLow)
+                SettingToggle("Straßenname unten anzeigen", symbol: "signpost.right.fill", color: .green, isOn: $settings.showRoadName)
                 SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
                 SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
                 SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
@@ -581,7 +585,7 @@ private struct NavigationSettingsPage: View {
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
             }
             Section {
                 SettingToggle("Strecke aufzeichnen", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .brown, isOn: $settings.recordTracks)

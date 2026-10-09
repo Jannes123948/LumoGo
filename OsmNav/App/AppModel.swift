@@ -10,6 +10,8 @@ struct NavHudState {
     var etaText = ""
     var summaryText = ""
     var lanes: [OsrmLane] = []
+    /** Aktuelle Straße für die Namensleiste unten; nil = ausblenden. */
+    var roadName: String?
 }
 
 /**
@@ -64,7 +66,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var routeOptions: [OsrmRoute] = []
     @Published private(set) var selectedRouteIndex = 0
     @Published private(set) var lastRoute: OsrmRoute?
-    @Published private(set) var instructions: [String] = []
+    @Published private(set) var instructions: [PreviewInstruction] = []
     @Published var showInstructions = false
     @Published private(set) var elevationProfile: ElevationProfile?
     @Published private(set) var routeLoading = false
@@ -637,6 +639,7 @@ final class AppModel: ObservableObject {
         // Display während der Navigation anlassen + Standort im Hintergrund weiterlaufen lassen.
         UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
         location.setNavigating(true)
+        map.setPuckLow(settings.navPuckLow)
 
         announcer.reset()
         say(newTracker.currentInstruction(), interrupt: true)
@@ -718,6 +721,7 @@ final class AppModel: ObservableObject {
         isSpeeding = false
         UIApplication.shared.isIdleTimerDisabled = false
         location.setNavigating(false)
+        map.setPuckLow(false)
         map.ease(pitch: currentTilt(), heading: 0)
     }
 
@@ -799,6 +803,7 @@ final class AppModel: ObservableObject {
         lastDisplayPosition = display
         // Der Pfeil zeigt in BEIDEN Karten die echte Richtung — nur die Kamera bleibt in der
         // OSM-Karte genordet (cameraHeading()).
+        map.smoothPuck = settings.smoothPuck
         map.updatePuck(display, heading: navBearing)
 
         if !hasCenteredOnFirstFix {
@@ -813,7 +818,7 @@ final class AppModel: ObservableObject {
         guard navigationActive, let tracker else {
             // Freier Modus: nur die eigene Geschwindigkeit (ohne Route gibt es keine Tempolimits).
             updateCurrentSpeed(loc)
-            if followEnabled { map.ease(center: display, pitch: currentTilt()) }
+            if followEnabled { map.followPuck(pitch: currentTilt()) }
             return
         }
 
@@ -842,7 +847,7 @@ final class AppModel: ObservableObject {
         }
 
         if followEnabled {
-            map.ease(center: display, zoom: navZoom(loc.speed), pitch: currentTilt(), heading: cameraHeading())
+            map.followPuck(zoom: navZoom(loc.speed), pitch: currentTilt(), heading: cameraHeading())
         }
     }
 
@@ -976,7 +981,8 @@ final class AppModel: ObservableObject {
             etaText: FormatUtils.formatEta(remainingDuration),
             summaryText: "\(FormatUtils.formatDistance(remainingDistance)) · \(FormatUtils.formatDuration(remainingDuration))",
             // Spurempfehlung erst kurz vor der Abzweigung (wie Google Maps).
-            lanes: settings.laneGuidance && distanceToNext <= 400 ? (next.lanes ?? []) : []
+            lanes: settings.laneGuidance && distanceToNext <= 400 ? (next.lanes ?? []) : [],
+            roadName: settings.showRoadName ? tracker.currentRoadName(current) : nil
         )
         if navigationActive {
             liveActivity.update(liveActivityState())
@@ -1142,6 +1148,18 @@ final class AppModel: ObservableObject {
     func openAlongRoute() {
         guard lastRoute != nil else { return }
         requestedSheet = .some(.alongRoute)
+    }
+
+    func openWeather() { requestedSheet = .some(.weather) }
+
+    /** Für das Wetter-Blatt: Strecke, die noch vor einem liegt, + Fahrzeit dafür; nil = keine Route. */
+    func weatherRoute() -> (line: [LatLon], duration: Double)? {
+        if navigationActive, let tracker, let position = lastDisplayPosition {
+            let remaining = tracker.remainingDistance(position)
+            return (tracker.geometryAround(position, behindMeters: 0, aheadMeters: remaining + 50), tracker.remainingDuration(position))
+        }
+        guard let route = lastRoute else { return nil }
+        return (route.geometry, route.duration)
     }
 
     /** Strecke, die noch vor einem liegt (Navigation: ab Position, sonst ab Routenstart), höchstens [meters]. */

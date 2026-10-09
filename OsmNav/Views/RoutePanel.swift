@@ -74,21 +74,14 @@ struct RoutePanel: View {
                 if let profile = model.elevationProfile {
                     ElevationChart(profile: profile)
                 }
-                Button(model.showInstructions ? "Anweisungen ausblenden" : "Anweisungen anzeigen") {
-                    model.showInstructions.toggle()
+                // Eigenes Blatt statt Liste im Panel: das Panel ist mit Wetter, Höhenprofil und Knöpfen so
+                // hoch, dass eine eingebettete ScrollView auf 0 pt zusammengedrückt wurde (Liste unsichtbar).
+                Button {
+                    model.showInstructions = true
+                } label: {
+                    Label("Anweisungen anzeigen", systemImage: "list.number")
                 }
                 .font(.subheadline)
-                if model.showInstructions {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 6) {
-                            ForEach(Array(model.instructions.enumerated()), id: \.offset) { index, text in
-                                Text("\(index + 1). \(text)").font(.footnote)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(maxHeight: 160)
-                }
             }
 
             HStack(spacing: 10) {
@@ -116,6 +109,10 @@ struct RoutePanel: View {
         }
         .padding(14)
         .card()
+        .sheet(isPresented: $model.showInstructions) {
+            InstructionsSheet(instructions: model.instructions, route: model.lastRoute)
+                .environmentObject(settings)
+        }
         .alert("Route speichern", isPresented: $savingRoute) {
             TextField("Name", text: $routeName)
             Button("Abbrechen", role: .cancel) {}
@@ -126,6 +123,63 @@ struct RoutePanel: View {
     }
 }
 
+/** Anweisungsliste der gewählten Route als Blatt (halbe/volle Höhe). */
+struct InstructionsSheet: View {
+    let instructions: [PreviewInstruction]
+    let route: OsrmRoute?
+    @EnvironmentObject private var settings: AppSettings
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+
+    /** „bei km 4,2 · dann 1,3 km“ — Position des Manövers auf der Route und Strecke bis zum nächsten. */
+    private func subtitle(_ item: PreviewInstruction, isLast: Bool) -> String {
+        let km = (item.startMeters / 100).rounded() / 10
+        let position = "bei km " + km.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "de_DE")))
+        guard !isLast, item.distance > 0 else { return position }
+        return position + " · dann " + FormatUtils.formatDistance(item.distance)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let route {
+                    Section {
+                        Text("\(FormatUtils.formatDuration(route.duration)) · \(FormatUtils.formatDistance(route.distance))")
+                            .font(.headline)
+                    }
+                }
+                Section {
+                    if instructions.isEmpty {
+                        Text("Keine Anweisungen vorhanden.").foregroundStyle(.secondary)
+                    }
+                    ForEach(Array(instructions.enumerated()), id: \.offset) { index, item in
+                        HStack(spacing: 12) {
+                            ManeuverIcon(icon: item.icon, size: 20)
+                                .foregroundStyle(Color(hex: settings.textTintHex(dark: colorScheme == .dark)))
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.text).font(.subheadline)
+                                Text(subtitle(item, isLast: index == instructions.count - 1))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+            .navigationTitle("Anweisungen")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Fertig") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
 /** Wetter am Ziel zur Ankunftszeit + erster Regen unterwegs (Open-Meteo). */
 struct RouteWeatherRow: View {
     let weather: RouteWeather
@@ -133,9 +187,7 @@ struct RouteWeatherRow: View {
     var body: some View {
         HStack(spacing: 8) {
             if let destination = weather.destination {
-                Image(systemName: WeatherCode.symbol(destination.weatherCode))
-                    .symbolRenderingMode(.multicolor)
-                    .font(.title3)
+                WeatherBadge(code: destination.weatherCode, size: 32)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Am Ziel \(destination.time.formatted(date: .omitted, time: .shortened)): \(Int(destination.temperature.rounded()))° \(WeatherCode.text(destination.weatherCode))")
                         .font(.caption.weight(.semibold))

@@ -245,6 +245,12 @@ final class AppSettings: ObservableObject {
     @Published var keepScreenOn: Bool { didSet { defaults.set(keepScreenOn, forKey: "keep_screen_on") } }
     @Published var autoZoom: Bool { didSet { defaults.set(autoZoom, forKey: "auto_zoom") } }
     @Published var laneGuidance: Bool { didSet { defaults.set(laneGuidance, forKey: "lane_guidance") } }
+    /** Pfeil gleitet zwischen den GPS-Fixes, Kamera fährt Bild für Bild mit. */
+    @Published var smoothPuck: Bool { didSet { defaults.set(smoothPuck, forKey: "smooth_puck") } }
+    /** Pfeil in der Navigation weiter unten im Bild (wie Google Maps). */
+    @Published var navPuckLow: Bool { didSet { defaults.set(navPuckLow, forKey: "nav_puck_low") } }
+    /** Namensleiste der aktuellen Straße unten in der Navigation. */
+    @Published var showRoadName: Bool { didSet { defaults.set(showRoadName, forKey: "show_road_name") } }
     @Published var autoReroute: Bool { didSet { defaults.set(autoReroute, forKey: "auto_reroute") } }
     @Published var alternativeRoutes: Bool { didSet { defaults.set(alternativeRoutes, forKey: "alternative_routes") } }
     /** Offline-Straßennetz inkl. reiner Rad-/Fußwege (≈2,7× Daten, deutlich langsamer). */
@@ -272,6 +278,8 @@ final class AppSettings: ObservableObject {
     @Published var alongRouteCorridor: Int { didSet { defaults.set(alongRouteCorridor, forKey: "along_route_corridor") } }
     /** Wetter entlang der Route im Routen-Panel (Open-Meteo). */
     @Published var routeWeather: Bool { didSet { defaults.set(routeWeather, forKey: "route_weather") } }
+    /** Wetter-Knopf rechts auf der Karte (hier jetzt/in 1 Stunde + auf der Strecke). */
+    @Published var weatherButton: Bool { didSet { defaults.set(weatherButton, forKey: "weather_button") } }
     /** Originalspur einer GPX-Tour gestrichelt auf der Karte. */
     @Published var showTourTrack: Bool { didSet { defaults.set(showTourTrack, forKey: "show_tour_track") } }
     /** Navigations-Widget (Homescreen) mit Daten versorgen — Ersatz für Bild-im-Bild. */
@@ -325,6 +333,9 @@ final class AppSettings: ObservableObject {
         keepScreenOn = defaults.object(forKey: "keep_screen_on") as? Bool ?? true
         autoZoom = defaults.object(forKey: "auto_zoom") as? Bool ?? true
         laneGuidance = defaults.object(forKey: "lane_guidance") as? Bool ?? true
+        smoothPuck = defaults.object(forKey: "smooth_puck") as? Bool ?? true
+        navPuckLow = defaults.object(forKey: "nav_puck_low") as? Bool ?? true
+        showRoadName = defaults.object(forKey: "show_road_name") as? Bool ?? true
         autoReroute = defaults.object(forKey: "auto_reroute") as? Bool ?? true
         alternativeRoutes = defaults.object(forKey: "alternative_routes") as? Bool ?? true
         offlinePaths = defaults.object(forKey: "offline_paths") as? Bool ?? false
@@ -344,6 +355,7 @@ final class AppSettings: ObservableObject {
         alongRouteKm = defaults.object(forKey: "along_route_km") as? Int ?? 50
         alongRouteCorridor = defaults.object(forKey: "along_route_corridor") as? Int ?? 600
         routeWeather = defaults.object(forKey: "route_weather") as? Bool ?? true
+        weatherButton = defaults.object(forKey: "weather_button") as? Bool ?? true
         showTourTrack = defaults.object(forKey: "show_tour_track") as? Bool ?? true
         speedAdaptiveVolume = defaults.object(forKey: "speed_volume") as? Bool ?? true
         tankerkoenigKey = defaults.string(forKey: "tankerkoenig_key") ?? ""
@@ -418,6 +430,9 @@ final class AppSettings: ObservableObject {
         keepScreenOn = true
         autoZoom = true
         laneGuidance = true
+        smoothPuck = true
+        navPuckLow = true
+        showRoadName = true
         autoReroute = true
         alternativeRoutes = true
         offlinePaths = false
@@ -437,6 +452,7 @@ final class AppSettings: ObservableObject {
         alongRouteKm = 50
         alongRouteCorridor = 600
         routeWeather = true
+        weatherButton = true
         showTourTrack = true
         speedAdaptiveVolume = true
         fuelType = .e10

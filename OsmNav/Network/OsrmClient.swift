@@ -108,6 +108,7 @@ enum OsrmClient {
         let duration: Double
         let destinations: String?
         let exits: String?
+        let ref: String?
         let intersections: [IntersectionDTO]?
 
         func toModel() -> OsrmStep {
@@ -126,7 +127,8 @@ enum OsrmClient {
                 duration: duration,
                 destinations: destinations,
                 exits: exits,
-                lanes: lanes
+                lanes: lanes,
+                ref: ref
             )
         }
     }
