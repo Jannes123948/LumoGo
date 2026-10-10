@@ -1,7 +1,7 @@
 import Foundation
 
 /** Kraftstoffsorte für die Spritpreise (Tankerkönig-`type`). */
-enum FuelType: String, CaseIterable, Identifiable {
+enum FuelType: String, CaseIterable, Identifiable, Codable {
     case e5, e10, diesel
     var id: String { rawValue }
 

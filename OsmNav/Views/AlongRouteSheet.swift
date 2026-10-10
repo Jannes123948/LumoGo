@@ -80,7 +80,9 @@ struct AlongRouteSheet: View {
             .frame(width: 66)
             VStack(alignment: .leading, spacing: 2) {
                 Text(place.name).font(.subheadline.weight(.semibold)).lineLimit(2)
-                if let detail = place.detail {
+                if let fuelType = place.fuelType {
+                    FuelPriceView(type: fuelType, price: place.price)
+                } else if let detail = place.detail {
                     Text(detail).font(.caption).foregroundStyle(place.price != nil ? Color.green : .secondary)
                 }
             }

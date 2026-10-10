@@ -54,6 +54,8 @@ struct AlongRoutePlace: Identifiable, Hashable {
     /** Zusatz: Preis bei Tankerkönig, sonst Öffnungsstatus. */
     let detail: String?
     let price: Double?
+    /** Gesetzt bei Tankerkönig-Treffern → Preistafel statt Textzeile. */
+    var fuelType: FuelType? = nil
 
     /** Geschätzter Umweg: hin und zurück mit ≈ 30 km/h auf Nebenstraßen, mindestens 1 Minute. */
     var detourMinutes: Int { max(1, Int((2 * offsetMeters / 8.3 / 60).rounded())) }
@@ -123,7 +125,7 @@ enum AlongRouteSearch {
             let name = station.place.map { "\(station.name) (\($0))" } ?? station.name
             let detail = station.priceText.map { "\(type.label) \($0)" } ?? "geschlossen"
             return AlongRoutePlace(id: station.id, name: name, point: p, alongMeters: along,
-                                   offsetMeters: offset, detail: detail, price: station.price)
+                                   offsetMeters: offset, detail: detail, price: station.price, fuelType: type)
         }
         .sorted { $0.alongMeters < $1.alongMeters }
     }

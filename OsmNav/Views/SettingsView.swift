@@ -833,6 +833,15 @@ private struct FuelPriceSection: View {
             .disabled(!hasKey)
             SettingToggle("Günstigste zuerst", symbol: "eurosign.circle.fill", color: .blue, isOn: $settings.fuelSortByPrice)
                 .disabled(!hasKey)
+            SettingToggle("Preis als Preistafel", symbol: "signpost.right.fill", color: .orange, isOn: $settings.fuelPriceSign)
+                .disabled(!hasKey)
+            if hasKey {
+                HStack {
+                    Text("Vorschau").foregroundStyle(.secondary)
+                    Spacer()
+                    FuelPriceView(type: settings.fuelType, price: 1.739)
+                }
+            }
         } header: {
             Text("Spritpreise")
         } footer: {

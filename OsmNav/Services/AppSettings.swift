@@ -295,6 +295,8 @@ final class AppSettings: ObservableObject {
     @Published var tankerkoenigKey: String { didSet { defaults.set(tankerkoenigKey, forKey: "tankerkoenig_key") } }
     @Published var fuelType: FuelType { didSet { defaults.set(fuelType.rawValue, forKey: "fuel_type") } }
     @Published var fuelSortByPrice: Bool { didSet { defaults.set(fuelSortByPrice, forKey: "fuel_sort_price") } }
+    /** Preise als Tankstellen-Preistafel („1,73⁹“) statt als Text — von `FuelPriceView` per @AppStorage gelesen. */
+    @Published var fuelPriceSign: Bool { didSet { defaults.set(fuelPriceSign, forKey: "fuel_price_sign") } }
 
     init() {
         mapEngine = MapEngine(rawValue: defaults.string(forKey: "map_engine") ?? "") ?? .vector
@@ -361,6 +363,7 @@ final class AppSettings: ObservableObject {
         tankerkoenigKey = defaults.string(forKey: "tankerkoenig_key") ?? ""
         fuelType = FuelType(rawValue: defaults.string(forKey: "fuel_type") ?? "") ?? .e10
         fuelSortByPrice = defaults.object(forKey: "fuel_sort_price") as? Bool ?? true
+        fuelPriceSign = defaults.object(forKey: "fuel_price_sign") as? Bool ?? true
     }
 
     // MARK: - Farben
@@ -457,6 +460,7 @@ final class AppSettings: ObservableObject {
         speedAdaptiveVolume = true
         fuelType = .e10
         fuelSortByPrice = true
+        fuelPriceSign = true
         // Der Tankerkönig-Schlüssel bleibt (ist eher ein Zugangsdatum als eine Einstellung).
     }
 }

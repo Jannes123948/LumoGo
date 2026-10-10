@@ -39,6 +39,9 @@ struct SearchPanel: View {
                                         .multilineTextAlignment(.leading)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 }
+                                if let fuelType = result.fuelType {
+                                    FuelPriceView(type: fuelType, price: result.fuelPrice)
+                                }
                                 Button {
                                     model.saveSearchResultAsFavorite(result)
                                 } label: {

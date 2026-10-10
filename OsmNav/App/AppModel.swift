@@ -262,7 +262,9 @@ final class AppModel: ObservableObject {
     }
 
     func selectSearchResult(_ result: SearchResult) {
-        RecentSearchesStore.add(result)
+        // Preise veralten — im Verlauf nur den Ort merken.
+        RecentSearchesStore.add(SearchResult(displayName: result.displayName, lat: result.lat, lon: result.lon,
+                                             boundingBox: result.boundingBox))
         addDestination(result.point, label: result.displayName)
         map.ease(center: result.point, zoom: 15)
         suppressSearch = true
@@ -345,9 +347,10 @@ final class AppModel: ObservableObject {
             let sorted = stations.filter { $0.price != nil } + stations.filter { $0.price == nil }
             searchResults = sorted.prefix(30).map { station in
                 let name = station.place.map { "\(station.name) (\($0))" } ?? station.name
-                let price = station.priceText.map { "\(settings.fuelType.label) \($0)" } ?? "geschlossen"
                 let distance = FormatUtils.formatDistance(station.distanceKm * 1000)
-                return SearchResult(displayName: "\(name) · \(distance) · \(price)", lat: station.lat, lon: station.lon, boundingBox: nil)
+                // Preis steht als Tafel rechts in der Zeile (FuelPriceView), nicht im Text.
+                return SearchResult(displayName: "\(name) · \(distance)", lat: station.lat, lon: station.lon, boundingBox: nil,
+                                    fuelType: settings.fuelType, fuelPrice: station.price)
             }
             showSearchResults = true
             showToast(settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces) == TankerkoenigClient.demoKey

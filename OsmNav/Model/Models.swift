@@ -36,6 +36,9 @@ struct SearchResult: Codable, Hashable, Identifiable {
     let lon: Double
     /** Nur für Verwaltungsgebiete sinnvoll gefüllt — Grundlage für Offline-Kartendownloads. */
     let boundingBox: BoundingBox?
+    /** Tankstelle aus Tankerkönig: Sorte (+ Preis, nil = geschlossen) → Preistafel in der Liste. */
+    var fuelType: FuelType? = nil
+    var fuelPrice: Double? = nil
 
     var point: LatLon { LatLon(lat, lon) }
 }
