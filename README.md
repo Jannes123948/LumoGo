@@ -11,11 +11,12 @@ Suche: Nominatim + Overpass.
 
 ## Öffnen & starten
 1. `OsmNav.xcodeproj` in Xcode öffnen (Swift Package „MapLibre“ wird automatisch aufgelöst).
-2. Targets **OsmNav** UND **LumoGoWidgets** → *Signing & Capabilities* → jeweils eigenes Team wählen
-   (für echtes iPhone nötig; ggf. Bundle-IDs `com.jannehorst.osmnav` / `….osmnav.widgets` anpassen —
-   die Widget-ID muss mit der App-ID beginnen). Beide nutzen die App Group `group.com.jannehorst.osmnav`
-   (Navigations-Widget) — Xcode legt sie beim automatischen Signieren an; bei geänderter Bundle-ID auch
-   die Gruppe in `OsmNav.entitlements`, `LumoGoWidgets.entitlements` und `Shared/NavWidgetState.swift` anpassen.
+2. Targets **OsmNav**, **LumoGoWidgets** UND **LumoGoShare** → *Signing & Capabilities* → jeweils eigenes
+   Team wählen (für echtes iPhone nötig; ggf. Bundle-IDs `com.jannehorst.osmnav` / `….osmnav.widgets` /
+   `….osmnav.share` anpassen — die Erweiterungs-IDs müssen mit der App-ID beginnen). Alle drei nutzen die
+   App Group `group.com.jannehorst.osmnav` (Navigations-Widget, geteilte Orte) — Xcode legt sie beim
+   automatischen Signieren an; bei geänderter Bundle-ID auch die Gruppe in `OsmNav.entitlements`,
+   `LumoGoWidgets.entitlements`, `LumoGoShare.entitlements` und `Shared/NavWidgetState.swift` anpassen.
 3. Gerät/Simulator wählen → Run (⌘R). Im Simulator Standort über *Features → Location* setzen.
 
 ## Struktur (`OsmNav/`)
@@ -32,9 +33,10 @@ Suche: Nominatim + Overpass.
 | `Views/` | SwiftUI-Oberflächen |
 
 Außerdem: `LumoGoWidgets/` = Widget-Erweiterung (Navigation auf Sperrbildschirm/Dynamic Island,
-Schnellzugriff-Widget), `Shared/` = Code für App UND Erweiterung (Live-Aktivitäts-Daten, `lumogo://`-Links).
+Schnellzugriff-Widget), `LumoGoShare/` = Teilen-Erweiterung (Orte aus Apple Karten, Google Maps & Co.
+übernehmen), `Shared/` = Code für App UND Erweiterungen (Live-Aktivitäts-Daten, `lumogo://`-Links, geteilte Orte).
 
-Das Xcode-Projekt nutzt „synchronisierte Ordner“ (Xcode 16): neue Dateien in `OsmNav/`, `Shared/` und `LumoGoWidgets/` werden
+Das Xcode-Projekt nutzt „synchronisierte Ordner“ (Xcode 16): neue Dateien in `OsmNav/`, `Shared/`, `LumoGoWidgets/` und `LumoGoShare/` werden
 automatisch mitgebaut, ohne sie im Projekt eintragen zu müssen.
 
 ## Unterschiede zur Android-Version

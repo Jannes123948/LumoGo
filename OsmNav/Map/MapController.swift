@@ -61,6 +61,15 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private static let puckIcon = "nav-arrow"
     private static let tourSourceId = "tour-track"
     private static let tourLayerId = "tour-track-layer"
+    private static let arrowSourceId = "maneuver-arrow"
+    private static let arrowCasingLayerId = "maneuver-arrow-casing"
+    private static let arrowLayerId = "maneuver-arrow-layer"
+    private static let arrowHeadSourceId = "maneuver-arrow-head"
+    private static let arrowHeadLayerId = "maneuver-arrow-head-layer"
+    private static let arrowHeadIcon = "maneuver-head"
+    private static let parkedSourceId = "parked-car"
+    private static let parkedLayerId = "parked-car-layer"
+    private static let parkedIcon = "parked-car-icon"
     private static let selectedPoiSourceId = "selected-poi"
     private static let selectedPoiLayerId = "selected-poi-layer"
     /** Quell-Layer der OpenMapTiles-Kacheln, deren Symbole antippbar sind. */
@@ -113,6 +122,8 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     static let puckLabelOffset: CGFloat = 23 + 8
     private var selectedPoi: LatLon?
     private var tourTrack: [LatLon] = []
+    private var maneuverArrow: [LatLon] = []
+    private var parkedCar: LatLon?
 
     func makeMapView(engine: MapEngine, dark: Bool) -> MLNMapView {
         Self.configureNetwork()
@@ -338,6 +349,38 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         routeLayer.lineJoin = NSExpression(forConstantValue: "round")
         style.addLayer(routeLayer)
 
+        // Abbiegepfeil (Kreuzungsansicht): weiße Linie mit dunklem Rand + Spitze, über der Route.
+        let arrowSource = MLNShapeSource(identifier: Self.arrowSourceId, shape: nil, options: nil)
+        style.addSource(arrowSource)
+        let arrowCasing = MLNLineStyleLayer(identifier: Self.arrowCasingLayerId, source: arrowSource)
+        arrowCasing.lineColor = NSExpression(forConstantValue: UIColor(white: 0.12, alpha: 1))
+        arrowCasing.lineWidth = NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'exponential', 1.5, %@)",
+                                             [13: 5, 16: 10, 19: 18])
+        arrowCasing.lineCap = NSExpression(forConstantValue: "butt")
+        arrowCasing.lineJoin = NSExpression(forConstantValue: "round")
+        style.addLayer(arrowCasing)
+        let arrowLine = MLNLineStyleLayer(identifier: Self.arrowLayerId, source: arrowSource)
+        arrowLine.lineColor = NSExpression(forConstantValue: UIColor.white)
+        arrowLine.lineWidth = NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'exponential', 1.5, %@)",
+                                           [13: 3, 16: 6.5, 19: 12])
+        arrowLine.lineCap = NSExpression(forConstantValue: "butt")
+        arrowLine.lineJoin = NSExpression(forConstantValue: "round")
+        style.addLayer(arrowLine)
+        style.setImage(Self.renderArrowHead(), forName: Self.arrowHeadIcon)
+        let headSource = MLNShapeSource(identifier: Self.arrowHeadSourceId, shape: nil, options: nil)
+        style.addSource(headSource)
+        let headLayer = MLNSymbolStyleLayer(identifier: Self.arrowHeadLayerId, source: headSource)
+        headLayer.iconImageName = NSExpression(forConstantValue: Self.arrowHeadIcon)
+        headLayer.iconRotation = NSExpression(forKeyPath: "heading")
+        headLayer.iconRotationAlignment = NSExpression(forConstantValue: "map")
+        headLayer.iconPitchAlignment = NSExpression(forConstantValue: "map")
+        headLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+        headLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
+        // Spitze passend zur Linienbreite mitwachsen lassen.
+        headLayer.iconScale = NSExpression(format: "mgl_interpolate:withCurveType:parameters:stops:($zoomLevel, 'exponential', 1.5, %@)",
+                                           [13: 0.3, 16: 0.55, 19: 1.0])
+        style.addLayer(headLayer)
+
         let destSource = MLNShapeSource(identifier: Self.destinationSourceId, shape: nil, options: nil)
         style.addSource(destSource)
         let destLayer = MLNSymbolStyleLayer(identifier: Self.destinationLayerId, source: destSource)
@@ -346,6 +389,16 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         destLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
         destLayer.iconAnchor = NSExpression(forKeyPath: "anchor")
         style.addLayer(destLayer)
+
+        // Geparktes Auto.
+        style.setImage(Self.renderParkedCar(), forName: Self.parkedIcon)
+        let parkedSource = MLNShapeSource(identifier: Self.parkedSourceId, shape: nil, options: nil)
+        style.addSource(parkedSource)
+        let parkedLayer = MLNSymbolStyleLayer(identifier: Self.parkedLayerId, source: parkedSource)
+        parkedLayer.iconImageName = NSExpression(forConstantValue: Self.parkedIcon)
+        parkedLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+        parkedLayer.iconAnchor = NSExpression(forConstantValue: "bottom")
+        style.addLayer(parkedLayer)
 
         // Markierung des angetippten Orts (Ring), unter dem Standort-Pfeil.
         let selectedSource = MLNShapeSource(identifier: Self.selectedPoiSourceId, shape: nil, options: nil)
@@ -550,6 +603,40 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         return result < 0 ? result + 360 : result
     }
 
+    /** Abbiegepfeil am nächsten Manöver; leer = ausblenden. Spitze am Ende, in Richtung des letzten Stücks. */
+    func setManeuverArrow(_ line: [LatLon]) {
+        maneuverArrow = line
+        guard let style,
+              let source = style.source(withIdentifier: Self.arrowSourceId) as? MLNShapeSource,
+              let headSource = style.source(withIdentifier: Self.arrowHeadSourceId) as? MLNShapeSource else { return }
+        guard line.count >= 2, let end = line.last else {
+            source.shape = nil
+            headSource.shape = nil
+            return
+        }
+        // Richtung des letzten Stücks aus einem Punkt ≥ 3 m davor (Endpunkte liegen oft dicht beieinander).
+        let before = line.dropLast().last { GeoUtils.distanceMeters($0, end) >= 3 } ?? line[line.count - 2]
+        var coords = line.map(\.coordinate)
+        source.shape = MLNPolylineFeature(coordinates: &coords, count: UInt(coords.count))
+        let head = MLNPointFeature()
+        head.coordinate = end.coordinate
+        head.attributes = ["heading": GeoUtils.bearing(before, end)]
+        headSource.shape = head
+    }
+
+    /** Symbol des geparkten Autos; nil = ausblenden. */
+    func setParkedCar(_ point: LatLon?) {
+        parkedCar = point
+        guard let source = style?.source(withIdentifier: Self.parkedSourceId) as? MLNShapeSource else { return }
+        if let point {
+            let feature = MLNPointFeature()
+            feature.coordinate = point.coordinate
+            source.shape = feature
+        } else {
+            source.shape = nil
+        }
+    }
+
     func setSelectedPoi(_ point: LatLon?) {
         selectedPoi = point
         guard let source = style?.source(withIdentifier: Self.selectedPoiSourceId) as? MLNShapeSource else { return }
@@ -567,6 +654,8 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         setSelectedPoi(selectedPoi)
         setTourTrack(tourTrack)
         setRoutes(routes, selected: selectedRouteIndex)
+        setManeuverArrow(maneuverArrow)
+        setParkedCar(parkedCar)
         if let (position, heading) = drawnPuck ?? puck { drawPuck(position, heading: heading) }
     }
 
@@ -623,6 +712,54 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
             UIColor.white.setFill()
             ctx.cgContext.fillEllipse(in: CGRect(x: 4, y: 2, width: 36, height: 36))
             symbol.draw(in: CGRect(x: 2, y: 0, width: 40, height: 40))
+        }
+    }
+
+    /**
+     * Pfeilspitze: zeigt nach oben, die Grundlinie liegt in der Bildmitte — so sitzt sie beim Drehen
+     * genau auf dem Linienende.
+     */
+    private static func renderArrowHead() -> UIImage {
+        let size: CGFloat = 64
+        return UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            let path = UIBezierPath()
+            path.move(to: CGPoint(x: size / 2, y: 4))
+            path.addLine(to: CGPoint(x: size - 10, y: size / 2 + 1))
+            path.addLine(to: CGPoint(x: 10, y: size / 2 + 1))
+            path.close()
+            path.lineJoinStyle = .round
+            UIColor(white: 0.12, alpha: 1).setStroke()
+            path.lineWidth = 5
+            path.stroke()
+            UIColor.white.setFill()
+            path.fill()
+            _ = ctx
+        }
+    }
+
+    /** Geparktes Auto: blaue Stecknadel mit Auto-Symbol. */
+    private static func renderParkedCar() -> UIImage {
+        let blue = UIColor(red: 0.08, green: 0.4, blue: 0.85, alpha: 1)
+        let config = UIImage.SymbolConfiguration(pointSize: 17, weight: .bold)
+        let symbol = UIImage(systemName: "car.fill", withConfiguration: config)!.withTintColor(.white, renderingMode: .alwaysOriginal)
+        let size = CGSize(width: 40, height: 50)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            let cg = ctx.cgContext
+            cg.setShadow(offset: CGSize(width: 0, height: 1), blur: 3, color: UIColor.black.withAlphaComponent(0.35).cgColor)
+            let stem = UIBezierPath()
+            stem.move(to: CGPoint(x: 14, y: 34))
+            stem.addLine(to: CGPoint(x: 20, y: 48))
+            stem.addLine(to: CGPoint(x: 26, y: 34))
+            stem.close()
+            blue.setFill()
+            stem.fill()
+            UIColor.white.setFill()
+            cg.fillEllipse(in: CGRect(x: 2, y: 2, width: 36, height: 36))
+            cg.setShadow(offset: .zero, blur: 0, color: nil)
+            blue.setFill()
+            cg.fillEllipse(in: CGRect(x: 5, y: 5, width: 30, height: 30))
+            let s = symbol.size
+            symbol.draw(in: CGRect(x: 20 - s.width / 2, y: 20 - s.height / 2, width: s.width, height: s.height))
         }
     }
 

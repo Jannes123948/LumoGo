@@ -252,6 +252,19 @@ final class AppSettings: ObservableObject {
     /** Namensleiste der aktuellen Straße unten in der Navigation. */
     @Published var showRoadName: Bool { didSet { defaults.set(showRoadName, forKey: "show_road_name") } }
     @Published var autoReroute: Bool { didSet { defaults.set(autoReroute, forKey: "auto_reroute") } }
+    /** Vor kniffligen Kreuzungen/Ausfahrten heranzoomen + große Fahrstreifen-Pfeile. */
+    @Published var junctionView: Bool { didSet { defaults.set(junctionView, forKey: "junction_view") } }
+    /** Weißer Abbiegepfeil auf der Karte am nächsten Manöver. */
+    @Published var maneuverArrow: Bool { didSet { defaults.set(maneuverArrow, forKey: "maneuver_arrow") } }
+    /** Auf der Autobahn: nächste Ausfahrten und Rastanlagen. */
+    @Published var motorwayBar: Bool { didSet { defaults.set(motorwayBar, forKey: "motorway_bar") } }
+    /** Ohne GPS (Tunnel) Position entlang der Route weiterrechnen. */
+    @Published var tunnelMode: Bool { didSet { defaults.set(tunnelMode, forKey: "tunnel_mode") } }
+    /** Parkplatz bei Ankunft merken, Auto-Symbol auf der Karte. */
+    @Published var parkingMemory: Bool { didSet { defaults.set(parkingMemory, forKey: "parking_memory") } }
+    /** Aus anderen Apps geteilte Orte übernehmen; [sharedPlaceRoute] = gleich Route berechnen. */
+    @Published var sharedPlaces: Bool { didSet { defaults.set(sharedPlaces, forKey: "shared_places") } }
+    @Published var sharedPlaceRoute: Bool { didSet { defaults.set(sharedPlaceRoute, forKey: "shared_place_route") } }
     @Published var alternativeRoutes: Bool { didSet { defaults.set(alternativeRoutes, forKey: "alternative_routes") } }
     /** Offline-Straßennetz inkl. reiner Rad-/Fußwege (≈2,7× Daten, deutlich langsamer). */
     @Published var offlinePaths: Bool { didSet { defaults.set(offlinePaths, forKey: "offline_paths") } }
@@ -339,6 +352,13 @@ final class AppSettings: ObservableObject {
         navPuckLow = defaults.object(forKey: "nav_puck_low") as? Bool ?? true
         showRoadName = defaults.object(forKey: "show_road_name") as? Bool ?? true
         autoReroute = defaults.object(forKey: "auto_reroute") as? Bool ?? true
+        junctionView = defaults.object(forKey: "junction_view") as? Bool ?? true
+        maneuverArrow = defaults.object(forKey: "maneuver_arrow") as? Bool ?? true
+        motorwayBar = defaults.object(forKey: "motorway_bar") as? Bool ?? true
+        tunnelMode = defaults.object(forKey: "tunnel_mode") as? Bool ?? true
+        parkingMemory = defaults.object(forKey: "parking_memory") as? Bool ?? true
+        sharedPlaces = defaults.object(forKey: "shared_places") as? Bool ?? true
+        sharedPlaceRoute = defaults.object(forKey: "shared_place_route") as? Bool ?? true
         alternativeRoutes = defaults.object(forKey: "alternative_routes") as? Bool ?? true
         offlinePaths = defaults.object(forKey: "offline_paths") as? Bool ?? false
         offlineRoadSource = OfflineRoadSource.current
@@ -437,6 +457,13 @@ final class AppSettings: ObservableObject {
         navPuckLow = true
         showRoadName = true
         autoReroute = true
+        junctionView = true
+        maneuverArrow = true
+        motorwayBar = true
+        tunnelMode = true
+        parkingMemory = true
+        sharedPlaces = true
+        sharedPlaceRoute = true
         alternativeRoutes = true
         offlinePaths = false
         offlineRoadSource = .tiles

@@ -18,20 +18,63 @@ struct NavHudView: View {
                 }
                 Spacer(minLength: 0)
             }
-            if !model.hud.lanes.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(Array(model.hud.lanes.enumerated()), id: \.offset) { _, lane in
-                        let indication = lane.indications.first.flatMap { $0 == "none" ? nil : $0 } ?? "straight"
-                        ManeuverIcon(icon: ManeuverIconResolver.resolve(type: "turn", modifier: indication), size: 22)
-                            .opacity(lane.valid ? 1 : 0.35)
-                    }
+            if let junction = model.junction {
+                // Kreuzungsansicht: große Fahrstreifen + Balken bis zum Manöver.
+                if !junction.lanes.isEmpty {
+                    LaneStrip(lanes: junction.lanes, size: settings.largeHud ? 40 : 34, highlight: settings.hudText)
+                        .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                JunctionProgressBar(progress: junction.progress, color: settings.hudText)
+            } else if !model.hud.lanes.isEmpty {
+                LaneStrip(lanes: model.hud.lanes, size: 22, highlight: nil)
+                    .frame(maxWidth: .infinity)
             }
         }
+        .animation(.easeInOut(duration: 0.25), value: model.junction?.stepIndex)
         .foregroundStyle(settings.hudText)
         .padding(16)
         .glassPanel(tint: settings.hudBackground.opacity(settings.hudOpacity))
+    }
+}
+
+/** Balken der Kreuzungsansicht: füllt sich bis zum Manöver. */
+struct JunctionProgressBar: View {
+    let progress: Double
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(color.opacity(0.22))
+                Capsule().fill(color).frame(width: max(6, geo.size.width * progress))
+            }
+        }
+        .frame(height: 6)
+        .animation(.linear(duration: 0.9), value: progress)
+    }
+}
+
+/** Fahrstreifen-Pfeile; mit [highlight] als Kästchen je Spur (Kreuzungsansicht), passende hervorgehoben. */
+struct LaneStrip: View {
+    let lanes: [OsrmLane]
+    let size: CGFloat
+    let highlight: Color?
+
+    var body: some View {
+        HStack(spacing: highlight == nil ? 6 : 4) {
+            ForEach(Array(lanes.enumerated()), id: \.offset) { _, lane in
+                let indication = lane.indications.first.flatMap { $0 == "none" ? nil : $0 } ?? "straight"
+                ManeuverIcon(icon: ManeuverIconResolver.resolve(type: "turn", modifier: indication), size: size)
+                    .opacity(lane.valid ? 1 : 0.3)
+                    .padding(.horizontal, highlight == nil ? 0 : 2)
+                    .background {
+                        if let highlight {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(highlight.opacity(lane.valid ? 0.22 : 0.06))
+                        }
+                    }
+            }
+        }
     }
 }
 
@@ -79,7 +122,7 @@ struct NavBottomBar: View {
             }
             .accessibilityLabel("Ankunftszeit teilen")
             Button(role: .destructive) {
-                model.stopNavigation()
+                model.endNavigationByUser()
             } label: {
                 Label("Beenden", systemImage: "xmark")
                     .font(.headline)

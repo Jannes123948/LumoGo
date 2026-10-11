@@ -10,6 +10,8 @@ enum DeepLink: Equatable {
     case favorites
     case search
     case nearbyFuel
+    /** Teilen-Erweiterung hat einen Ort abgelegt (siehe SharedPlaceInbox). */
+    case shared
     case open
 
     static let scheme = "lumogo"
@@ -24,6 +26,7 @@ enum DeepLink: Equatable {
         case .favorites: return URL(string: "lumogo://favorites")!
         case .search: return URL(string: "lumogo://search")!
         case .nearbyFuel: return URL(string: "lumogo://fuel")!
+        case .shared: return URL(string: "lumogo://shared")!
         case .open: return URL(string: "lumogo://open")!
         }
     }
@@ -39,6 +42,7 @@ enum DeepLink: Equatable {
         case "favorites": self = .favorites
         case "search": self = .search
         case "fuel": self = .nearbyFuel
+        case "shared": self = .shared
         case "open", nil: self = .open
         default: return nil
         }

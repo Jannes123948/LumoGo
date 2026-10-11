@@ -137,6 +137,54 @@ final class RouteProgressTracker {
         return (nextManeuver(), distanceToNextManeuver(current))
     }
 
+    // MARK: - Strecke entlang der Route
+
+    /** Länge der Routenlinie. */
+    var totalLength: Double { cumulativePointDistance.last ?? 0 }
+
+    var stepCount: Int { steps.count }
+
+    func step(_ index: Int) -> NavStep { steps[index] }
+
+    /** Strecke vom Routenstart bis zum Manöver von Schritt [index]. */
+    func maneuverAlong(_ index: Int) -> Double { cumulativeManeuverDistance[index] }
+
+    /** Entlang der Route zurückgelegte Strecke bis zum Lot von [current]. */
+    func traveled(_ current: LatLon) -> Double { traveledDistanceAlongRoute(current) }
+
+    /** Punkt und Fahrtrichtung [along] Meter nach dem Routenstart (Tunnel-Modus). */
+    func position(along: Double) -> (point: LatLon, bearing: Double)? {
+        guard routePoints.count >= 2 else { return nil }
+        let d = min(max(along, 0), totalLength)
+        // Binäre Suche nach dem Segment, in dem d liegt.
+        var lo = 0, hi = routePoints.count - 1
+        while hi - lo > 1 {
+            let mid = (lo + hi) / 2
+            if cumulativePointDistance[mid] <= d { lo = mid } else { hi = mid }
+        }
+        let a = routePoints[lo], b = routePoints[hi]
+        let length = cumulativePointDistance[hi] - cumulativePointDistance[lo]
+        let f = length > 0 ? (d - cumulativePointDistance[lo]) / length : 0
+        let point = LatLon(a.latitude + (b.latitude - a.latitude) * f, a.longitude + (b.longitude - a.longitude) * f)
+        // Richtung wie snapWithBearing: zu einem Punkt 20 m voraus (weich in Kurven).
+        let ahead = geometry(fromAlong: d, toAlong: d + 20)
+        let target = ahead.last ?? b
+        let bearing = GeoUtils.distanceMeters(point, target) >= 1 ? GeoUtils.bearing(point, target) : GeoUtils.bearing(a, b)
+        return (point, bearing)
+    }
+
+    /**
+     * Manöver, das die Kreuzungsansicht gerade betrifft: das gerade erreichte, bis es [passedMeters]
+     * entlang der Route überfahren ist, sonst das nächste.
+     */
+    func junctionManeuverIndex(_ current: LatLon, passedMeters: Double = 30) -> Int? {
+        if currentStepIndex > 0, steps[currentStepIndex].maneuverType != "arrive",
+           traveledDistanceAlongRoute(current) < cumulativeManeuverDistance[currentStepIndex] + passedMeters {
+            return currentStepIndex
+        }
+        return isFinished ? nil : currentStepIndex + 1
+    }
+
     /** Distanz in Metern bis zum nächsten Manöverpunkt (Luftlinie). */
     func distanceToNextManeuver(_ current: LatLon) -> Double {
         GeoUtils.distanceMeters(current, nextManeuver().maneuverPoint)
@@ -277,9 +325,20 @@ final class RouteProgressTracker {
      */
     func geometryAround(_ current: LatLon, behindMeters: Double = 150, aheadMeters: Double = 1500) -> [LatLon] {
         guard let located = locate(current) else { return routePoints }
-        let from = max(0, located.traveled - behindMeters), to = located.traveled + aheadMeters
+        return geometry(fromAlong: max(0, located.traveled - behindMeters), toAlong: located.traveled + aheadMeters)
+    }
+
+    /** Routenlinie zwischen zwei Strecken ab Routenstart (mit Zwischenpunkten an den Enden). */
+    func geometry(fromAlong from: Double, toAlong to: Double) -> [LatLon] {
+        guard routePoints.count >= 2 else { return routePoints }
         var result: [LatLon] = []
-        for i in 0..<(routePoints.count - 1) {
+        // Erstes Segment per binärer Suche (lange Routen haben zehntausende Punkte).
+        var lo = 0, hi = routePoints.count - 1
+        while hi - lo > 1 {
+            let mid = (lo + hi) / 2
+            if cumulativePointDistance[mid] < from { lo = mid } else { hi = mid }
+        }
+        for i in lo..<(routePoints.count - 1) {
             let a = routePoints[i], b = routePoints[i + 1]
             let da = cumulativePointDistance[i], db = cumulativePointDistance[i + 1]
             if db < from { continue }

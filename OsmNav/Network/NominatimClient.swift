@@ -37,6 +37,34 @@ enum NominatimClient {
         }
     }
 
+    /** Kurze Adresse eines Punkts („Bautzner Straße 12, Dresden“); nil = nichts gefunden. */
+    static func reverse(_ point: LatLon) async throws -> String? {
+        let params = [("lat", "\(point.latitude)"), ("lon", "\(point.longitude)"), ("format", "jsonv2"),
+                      ("zoom", "18"), ("accept-language", "de")]
+        let data = try await HTTP.data(session, for: URLRequest(url: HTTP.url("https://nominatim.openstreetmap.org/reverse", params)))
+        guard let item = try? JSONDecoder().decode(ReverseItem.self, from: data), let a = item.address else { return nil }
+        let street = [a.road ?? a.pedestrian ?? a.square, a.house_number].compactMap { $0 }.joined(separator: " ")
+        let place = a.city ?? a.town ?? a.village ?? a.suburb
+        let parts = [street.isEmpty ? (item.name ?? "") : street, place ?? ""].filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    private struct ReverseItem: Decodable {
+        let name: String?
+        let address: Address?
+
+        struct Address: Decodable {
+            let road: String?
+            let pedestrian: String?
+            let square: String?
+            let house_number: String?
+            let city: String?
+            let town: String?
+            let village: String?
+            let suburb: String?
+        }
+    }
+
     private struct Item: Decodable {
         let display_name: String
         let lat: String

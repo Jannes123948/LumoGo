@@ -107,6 +107,38 @@ final class AppModel: ObservableObject {
     /** Geteilte Ankunftszeit hat sich um > 5 min verschoben → Knopf „Neue Ankunftszeit teilen“. */
     @Published private(set) var etaShiftedTo: String?
 
+    // Kreuzungsansicht + Abbiegepfeil
+    @Published private(set) var junction: JunctionState?
+    /** Laufende Kreuzungsansicht: Manöver + Startentfernung (bleibt beim Abbremsen bestehen). */
+    private var junctionSticky: (index: Int, trigger: Double)?
+    private var arrowManeuverIndex: Int?
+
+    // Autobahn-Leiste
+    @Published private(set) var motorwayAhead: [MotorwayAheadItem] = []
+    private var motorwayPois: [MotorwayPoi] = []
+    private var restAreaPlaces: [MotorwayInfo.RestAreaPlace] = []
+    private var restAreaTask: Task<Void, Never>?
+    private var routeCumulative: (routeId: UUID, distances: [Double])?
+
+    // Tunnel-Modus
+    struct DeadReckoning: Equatable {
+        /** Laut OSM-Daten liegt ein Tunnel auf der Route (sonst: GPS einfach weg). */
+        let inTunnel: Bool
+    }
+    @Published private(set) var deadReckoning: DeadReckoning?
+    /** Letzter genauer Fix auf der Route: Zeit, Strecke ab Routenstart, Tempo. */
+    private var lastGoodFix: (time: Date, along: Double, speed: Double)?
+    private var lastRawFixAt = Date.distantPast
+    private var lastRawAccuracy = 0.0
+    private var tunnelTimer: Timer?
+
+    // Parken
+    @Published private(set) var parkedCar: ParkedCar?
+    /** Läuft gerade „Zu Fuß zum Auto“: Profil vorher (wird danach zurückgesetzt). */
+    private var profileBeforeWalk: RoutingProfile?
+    /** Während der Navigation geteilter Ort — wird danach übernommen. */
+    private var pendingSharedPlace: SharedPlace?
+
     // Meldungen
     @Published var toast: String?
     @Published var alertMessage: String?
@@ -154,6 +186,8 @@ final class AppModel: ObservableObject {
         location.onHeading = { [weak self] heading in
             Task { @MainActor in self?.onCompassHeading(heading) }
         }
+        parkedCar = ParkingStore.load()
+        refreshParkedCarMarker()
     }
 
     func start() {
@@ -497,6 +531,7 @@ final class AppModel: ObservableObject {
     func clearDestinations() {
         waypoints.removeAll()
         waypointsChanged()
+        restoreWalkProfile()
     }
 
     private func waypointsChanged() {
@@ -552,8 +587,10 @@ final class AppModel: ObservableObject {
                 if result.usedOfflineRouting { showToast("Offline-Route berechnet.") }
                 if startNavigationAfter { startNavigation() }
             } catch let error as OfflineRoutingError {
+                restoreWalkProfile()
                 alertMessage = "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)"
             } catch {
+                restoreWalkProfile()
                 alertMessage = RouteFetcher.isConnectivityError(error)
                     ? "Route konnte nicht berechnet werden. Internetverbindung prüfen oder unter „Offline-Karten“ ein Paket für dieses Gebiet herunterladen."
                     : "Keine Route gefunden. Ist das Ziel mit „\(settings.routingProfile.label)“ erreichbar?"
@@ -643,6 +680,13 @@ final class AppModel: ObservableObject {
         UIApplication.shared.isIdleTimerDisabled = settings.keepScreenOn
         location.setNavigating(true)
         map.setPuckLow(settings.navPuckLow)
+        resetGuidanceExtras()
+        startTunnelWatch()
+        // Losfahren am geparkten Auto: der gemerkte Parkplatz ist erledigt.
+        if profileBeforeWalk == nil, settings.routingProfile == .car, let car = parkedCar, let pos = currentPosition,
+           GeoUtils.distanceMeters(pos, car.point) < 150 {
+            forgetParking()
+        }
 
         announcer.reset()
         say(newTracker.currentInstruction(), interrupt: true)
@@ -708,8 +752,34 @@ final class AppModel: ObservableObject {
         )
     }
 
+    /** „Beenden“-Knopf: wie [stopNavigation], merkt aber den Parkplatz, wenn man schon am Ziel ist. */
+    func endNavigationByUser() {
+        stopNavigation(userEnded: true)
+    }
+
     /** [arrived] = am Ziel angekommen (Sperrbildschirm zeigt dann noch kurz „Angekommen“). */
-    func stopNavigation(arrived: Bool = false) {
+    func stopNavigation(arrived: Bool = false, userEnded: Bool = false) {
+        let wasNavigating = navigationActive
+        if wasNavigating {
+            if profileBeforeWalk != nil {
+                if arrived {
+                    forgetParking()
+                    showToast("Am Auto angekommen.")
+                }
+                restoreWalkProfile()
+            } else if settings.parkingMemory, settings.routingProfile == .car, let pos = currentPosition,
+                      arrived || (userEnded && waypoints.last.map { GeoUtils.distanceMeters(pos, $0.point) < 300 } ?? false) {
+                // Angekommen oder kurz vor dem Ziel beendet → hier steht das Auto.
+                rememberParking(at: pos, announce: true)
+            }
+        }
+        tunnelTimer?.invalidate()
+        tunnelTimer = nil
+        deadReckoning = nil
+        lastGoodFix = nil
+        resetGuidanceExtras()
+        restAreaTask?.cancel()
+        restAreaTask = nil
         liveActivity.end(arrived: arrived)
         navWidget.clear()
         navigationActive = false
@@ -726,6 +796,13 @@ final class AppModel: ObservableObject {
         location.setNavigating(false)
         map.setPuckLow(false)
         map.ease(pitch: currentTilt(), heading: 0)
+        if wasNavigating, let shared = pendingSharedPlace {
+            pendingSharedPlace = nil
+            Task {
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
+                applySharedPlace(shared)
+            }
+        }
     }
 
     private func logCompletedTrip() {
@@ -773,7 +850,18 @@ final class AppModel: ObservableObject {
         trackPoints.append(point)
     }
 
-    private func onLocationUpdate(_ loc: CLLocation) {
+    /** [synthetic] = vom Tunnel-Modus geschätzte Position (kein echter GPS-Fix). */
+    private func onLocationUpdate(_ loc: CLLocation, synthetic: Bool = false) {
+        if !synthetic {
+            lastRawFixAt = Date()
+            lastRawAccuracy = loc.horizontalAccuracy
+            if deadReckoning != nil {
+                // Im Tunnel kommen oft wild springende, ungenaue Positionen — die geschätzte bleibt,
+                // bis wieder ein genauer Fix da ist.
+                guard loc.horizontalAccuracy >= 0, loc.horizontalAccuracy <= 35 else { return }
+                deadReckoning = nil
+            }
+        }
         lastLocation = loc
         let raw = LatLon(loc.coordinate)
 
@@ -825,7 +913,7 @@ final class AppModel: ObservableObject {
             return
         }
 
-        recordTrackPoint(loc)
+        if !synthetic { recordTrackPoint(loc) }
         updateTourProgress(display, tracker)
         announcer.chainEnabled = settings.chainAnnouncements
         if tracker.advanceIfNeeded(display) {
@@ -833,19 +921,26 @@ final class AppModel: ObservableObject {
         }
         updateHud(display, tracker)
         updateSpeed(display, loc)
+        updateGuidanceExtras(display, tracker, speedMps: max(loc.speed, 0))
+        if !synthetic, loc.horizontalAccuracy >= 0, loc.horizontalAccuracy <= 35 {
+            // Grundlage für den Tunnel-Modus: nur genaue Fixes auf der Route.
+            lastGoodFix = tracker.distanceFromRoute(raw) <= 30
+                ? (Date(), tracker.traveled(display), loc.speed >= 0 ? loc.speed : Double(speedKmh ?? 0) / 3.6)
+                : nil
+        }
         if !reroutingInProgress, settings.preAnnouncements,
            let text = announcer.preAnnouncement(tracker, distanceToNext: tracker.distanceToNextManeuver(display), speedMps: max(loc.speed, 0)) {
             say(text)
         }
 
         if tracker.isFinished && tracker.distanceToNextManeuver(display) < 15 {
-            say("Sie haben Ihr Ziel erreicht.")
-            logCompletedTrip()
+            say(profileBeforeWalk != nil ? "Sie sind an Ihrem Auto." : "Sie haben Ihr Ziel erreicht.")
+            if profileBeforeWalk == nil { logCompletedTrip() }
             stopNavigation(arrived: true)
             return
         }
 
-        if settings.autoReroute && !reroutingInProgress && tracker.distanceFromRoute(raw) > Self.rerouteThresholdMeters {
+        if !synthetic, settings.autoReroute, !reroutingInProgress, tracker.distanceFromRoute(raw) > Self.rerouteThresholdMeters {
             reroute(from: raw, legIndex: tracker.currentLegIndex())
         }
 
@@ -856,17 +951,133 @@ final class AppModel: ObservableObject {
 
     // MARK: - Tempolimit
 
+    /** Tempolimits + Straßenart (Autobahn, Tunnel) + Ausfahrten entlang der Route (nur online, Auto). */
     private func loadSpeedLimits(_ route: OsrmRoute) {
         speedLimitTask?.cancel()
+        restAreaTask?.cancel()
+        restAreaTask = nil
         speedLimits.replace([])
         speedLimit = nil
+        motorwayPois = []
+        restAreaPlaces = []
         guard !route.nodeLegs.isEmpty else { return }
         let routeId = route.id
         speedLimitTask = Task {
-            await SpeedLimitMap.load(nodeLegs: route.nodeLegs) { [weak self] segments in
+            await SpeedLimitMap.load(nodeLegs: route.nodeLegs, geometry: route.geometry) { [weak self] segments, junctions in
                 guard let self, self.navigationActive, self.lastRoute?.id == routeId else { return }
-                self.speedLimits.replace(segments)
+                self.speedLimits.replace(segments, junctions: junctions)
+                self.updateMotorwayPois(route)
             }
+        }
+    }
+
+    // MARK: - Autobahn-Leiste, Kreuzungsansicht, Tunnel-Modus
+
+    private func cumulativeDistances(_ route: OsrmRoute) -> [Double] {
+        if let cached = routeCumulative, cached.routeId == route.id { return cached.distances }
+        let distances = AlongRouteSearch.cumulativeDistances(route.geometry)
+        routeCumulative = (route.id, distances)
+        return distances
+    }
+
+    /** Ausfahrten (aus den Routenknoten) + Rastanlagen (eigene Abfrage, sobald die Route Autobahn hat). */
+    private func updateMotorwayPois(_ route: OsrmRoute) {
+        guard let tracker, lastRoute?.id == route.id else { return }
+        let cumulative = cumulativeDistances(route)
+        let junctions = MotorwayInfo.junctionPois(speedLimits.junctions, tracker: tracker, line: route.geometry, cumulative: cumulative)
+        motorwayPois = MotorwayInfo.mergeRestAreas(restAreaPlaces, into: junctions, line: route.geometry, cumulative: cumulative) { [speedLimits] point in
+            speedLimits.peekSegment(at: point, maxDistanceMeters: 40)?.motorway ?? false
+        }
+        guard restAreaTask == nil, settings.motorwayBar, speedLimits.segments.contains(where: \.motorway) else { return }
+        restAreaTask = Task {
+            guard let places = try? await MotorwayInfo.fetchRestAreas(line: route.geometry, cumulative: cumulative),
+                  !Task.isCancelled, navigationActive, lastRoute?.id == route.id else { return }
+            restAreaPlaces = places
+            updateMotorwayPois(route)
+        }
+    }
+
+    private func resetGuidanceExtras() {
+        junction = nil
+        junctionSticky = nil
+        arrowManeuverIndex = nil
+        map.setManeuverArrow([])
+        if !motorwayAhead.isEmpty { motorwayAhead = [] }
+    }
+
+    /** Kreuzungsansicht, Abbiegepfeil und Autobahn-Leiste für die aktuelle Position. */
+    private func updateGuidanceExtras(_ current: LatLon, _ tracker: RouteProgressTracker, speedMps: Double) {
+        if settings.junctionView,
+           let result = JunctionView.state(tracker, current: current, speedMps: speedMps, sticky: junctionSticky) {
+            junctionSticky = (result.state.stepIndex, result.trigger)
+            if junction != result.state { junction = result.state }
+        } else {
+            junctionSticky = nil
+            if junction != nil { junction = nil }
+        }
+
+        let arrowIndex = settings.maneuverArrow ? JunctionView.arrowManeuver(tracker, current: current) : nil
+        if arrowIndex != arrowManeuverIndex {
+            arrowManeuverIndex = arrowIndex
+            map.setManeuverArrow(arrowIndex.map { JunctionView.arrow(tracker, index: $0, speedMps: speedMps) } ?? [])
+        }
+
+        var ahead: [MotorwayAheadItem] = []
+        if settings.motorwayBar, speedLimits.peekSegment(at: current)?.motorway == true {
+            ahead = MotorwayInfo.upcoming(motorwayPois, traveled: tracker.traveled(current))
+        }
+        if ahead != motorwayAhead { motorwayAhead = ahead }
+    }
+
+    private func startTunnelWatch() {
+        tunnelTimer?.invalidate()
+        lastGoodFix = nil
+        deadReckoning = nil
+        tunnelTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tunnelTick() }
+        }
+    }
+
+    /**
+     * Tunnel-Modus: Bleibt der GPS-Empfang aus (keine oder nur sehr ungenaue Fixes), obwohl man
+     * eben noch schneller als ≈ 30 km/h fuhr, rückt die Position mit dem letzten Tempo entlang der
+     * Route weiter — Pfeil, Anweisungen und Ansagen laufen weiter. Liegt laut OSM ein Tunnel auf der
+     * Route, sofort; sonst erst nach 4 s ohne jeden Fix (an der Ampel kommen ohnehin Fixes, solange
+     * man abbremst). Endet beim ersten genauen Fix, nach 10 km (Tunnel) bzw. 2 km oder 10 Minuten.
+     */
+    private func tunnelTick() {
+        guard navigationActive, settings.tunnelMode, let tracker, let good = lastGoodFix else {
+            if deadReckoning != nil { deadReckoning = nil }
+            return
+        }
+        let now = Date()
+        let sinceGood = now.timeIntervalSince(good.time)
+        if deadReckoning == nil {
+            let noFix = now.timeIntervalSince(lastRawFixAt)
+            let signalLost = noFix > 2.5 || (lastRawAccuracy > 50 && sinceGood > 2.5)
+            guard signalLost, good.speed > 8 else { return }
+            let tunnel = tunnelAhead(tracker, from: good.along)
+            guard tunnel || noFix > 4 else { return }
+            deadReckoning = DeadReckoning(inTunnel: tunnel)
+        }
+        let along = good.along + good.speed * sinceGood
+        let maxDistance = deadReckoning?.inTunnel == true ? 10_000.0 : 2_000.0
+        guard along - good.along <= maxDistance, sinceGood <= 600, along < tracker.totalLength - 30,
+              let position = tracker.position(along: along) else {
+            deadReckoning = nil
+            lastGoodFix = nil
+            return
+        }
+        let loc = CLLocation(coordinate: position.point.coordinate, altitude: 0, horizontalAccuracy: 10, verticalAccuracy: -1,
+                             course: position.bearing, speed: good.speed, timestamp: now)
+        onLocationUpdate(loc, synthetic: true)
+    }
+
+    /** Liegt kurz vor/an [along] ein Tunnelabschnitt (OSM `tunnel=*`)? */
+    private func tunnelAhead(_ tracker: RouteProgressTracker, from along: Double) -> Bool {
+        stride(from: along - 50, through: along + 400, by: 25).contains { d in
+            guard let point = tracker.position(along: d)?.point else { return false }
+            return speedLimits.peekSegment(at: point)?.tunnel == true
         }
     }
 
@@ -956,6 +1167,8 @@ final class AppModel: ObservableObject {
                 map.setRoutes([route.geometry], selected: 0)
                 let newTracker = RouteProgressTracker(route: route)
                 tracker = newTracker
+                resetGuidanceExtras()
+                lastGoodFix = nil
                 instructions = RouteProgressTracker.previewInstructions(route)
                 announcer.reset()
                 say(newTracker.currentInstruction())
@@ -1064,7 +1277,9 @@ final class AppModel: ObservableObject {
 
     /** Zoomstufe während der Navigation: nach Tempo oder fest. */
     private func navZoom(_ speedMps: Double) -> Double {
-        settings.autoZoom ? NavZoom.forSpeed(speedMps) : 17
+        let base = settings.autoZoom ? NavZoom.forSpeed(speedMps) : 17
+        // Kreuzungsansicht: eine Stufe näher heran.
+        return junction != nil ? min(base + 1, 19) : base
     }
 
     // MARK: - Kamera
@@ -1318,6 +1533,8 @@ final class AppModel: ObservableObject {
         case .nearbyFuel:
             if navigationActive { return }
             searchNearby(.fuel)
+        case .shared:
+            checkSharedInbox()
         case .open:
             break
         }
@@ -1340,5 +1557,146 @@ final class AppModel: ObservableObject {
 
     func navigateToFavorite(_ favorite: Favorite) {
         selectSearchResult(SearchResult(displayName: favorite.name, lat: favorite.point.latitude, lon: favorite.point.longitude, boundingBox: nil))
+    }
+
+    // MARK: - Parken
+
+    private func refreshParkedCarMarker() {
+        map.setParkedCar(settings.parkingMemory ? parkedCar?.point : nil)
+    }
+
+    /** Einstellung „Parkplatz merken“ geändert. */
+    func parkingSettingChanged() { refreshParkedCarMarker() }
+
+    /** Parkplatz hier merken (bei Ankunft automatisch, sonst über das Auto-Blatt). */
+    func rememberParking(at point: LatLon, announce: Bool = false) {
+        ParkingStore.cancelReminder()
+        var car = ParkedCar(lat: point.latitude, lon: point.longitude, date: Date())
+        ParkingStore.save(car)
+        parkedCar = car
+        refreshParkedCarMarker()
+        if announce { showToast("Parkplatz gemerkt – das Auto-Symbol zeigt, wo es steht.") }
+        Task {
+            guard let address = try? await NominatimClient.reverse(point), parkedCar?.date == car.date else { return }
+            car.address = address
+            car.note = parkedCar?.note
+            car.reminder = parkedCar?.reminder
+            parkedCar = car
+            ParkingStore.save(car)
+        }
+    }
+
+    func rememberParkingHere() {
+        guard let pos = currentPosition else {
+            showToast("Standort noch nicht verfügbar.")
+            return
+        }
+        rememberParking(at: pos)
+        showToast("Parkplatz hier gemerkt.")
+    }
+
+    func forgetParking() {
+        ParkingStore.clear()
+        parkedCar = nil
+        refreshParkedCarMarker()
+    }
+
+    func setParkingNote(_ note: String) {
+        guard var car = parkedCar else { return }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        car.note = trimmed.isEmpty ? nil : trimmed
+        parkedCar = car
+        ParkingStore.save(car)
+    }
+
+    /** Parkzeit-Erinnerung in [minutes] Minuten; nil = keine. */
+    func setParkingReminder(minutes: Int?) {
+        guard var car = parkedCar else { return }
+        ParkingStore.cancelReminder()
+        car.reminder = minutes.map { Date().addingTimeInterval(Double($0) * 60) }
+        parkedCar = car
+        ParkingStore.save(car)
+        guard let date = car.reminder else { return }
+        Task {
+            if await !ParkingStore.scheduleReminder(at: date, address: car.address) {
+                showToast("Mitteilungen sind für LumoGo aus — in den iPhone-Einstellungen erlauben.")
+                if var current = parkedCar {
+                    current.reminder = nil
+                    parkedCar = current
+                    ParkingStore.save(current)
+                }
+            }
+        }
+    }
+
+    func showParkedCar() {
+        guard let car = parkedCar else { return }
+        requestedSheet = .some(nil)
+        followEnabled = false
+        map.ease(center: car.point, zoom: 17, duration: 0.8)
+    }
+
+    /** Zu Fuß zum Auto: Profil vorübergehend „Fuß“, nach Ankunft/Beenden wieder wie vorher. */
+    func walkToCar() {
+        guard let car = parkedCar else { return }
+        if navigationActive { stopNavigation() }
+        requestedSheet = .some(nil)
+        clearSearch()
+        waypoints = []
+        addDestination(car.point, label: car.address.map { "Mein Auto, \($0)" } ?? "Mein Auto")
+        if settings.routingProfile != .foot {
+            profileBeforeWalk = settings.routingProfile
+            settings.routingProfile = .foot
+        }
+        if currentPosition == nil {
+            pendingAutoNavigation = true
+            showToast("Warte auf den Standort …")
+        } else {
+            calculateRoute(startNavigationAfter: true)
+        }
+    }
+
+    private func restoreWalkProfile() {
+        guard let previous = profileBeforeWalk else { return }
+        profileBeforeWalk = nil
+        settings.routingProfile = previous
+    }
+
+    // MARK: - Aus anderen Apps geteilte Orte
+
+    /** Beim Öffnen/Zurückkehren: hat die Teilen-Erweiterung einen Ort abgelegt? */
+    func checkSharedInbox() {
+        guard let place = SharedPlaceInbox.take() else { return }
+        guard settings.sharedPlaces else { return }
+        if navigationActive {
+            pendingSharedPlace = place
+            showToast("„\(place.displayName)“ wird nach der Navigation übernommen.")
+            return
+        }
+        applySharedPlace(place)
+    }
+
+    private func applySharedPlace(_ place: SharedPlace) {
+        requestedSheet = .some(nil)
+        if let point = place.point {
+            if navigationActive { stopNavigation() }
+            clearSearch()
+            waypoints = []
+            addDestination(point, label: place.name ?? Self.defaultLabel(point))
+            map.ease(center: point, zoom: 15)
+            if settings.sharedPlaceRoute { calculateRoute() }
+        } else if let query = place.query {
+            // Nur Name/Adresse: in der Suche zeigen, der Nutzer wählt den Treffer.
+            searchText = query
+            searchFocused = true
+            submitSearch()
+        }
+    }
+}
+
+private extension SharedPlace {
+    var point: LatLon? {
+        guard let latitude, let longitude else { return nil }
+        return LatLon(latitude, longitude)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveSheet: String, Identifiable {
-    case settings, favorites, nearby, trips, offline, alongRoute, weather
+    case settings, favorites, nearby, trips, offline, alongRoute, weather, parking
     var id: String { rawValue }
 }
 
@@ -10,6 +10,7 @@ struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sheet: ActiveSheet?
 
     /** Pfeil steht fest unten im Bild → Namensleiste direkt darunter; sonst über der Ankunftsleiste. */
@@ -35,6 +36,16 @@ struct ContentView: View {
             VStack(spacing: 8) {
                 if model.navigationActive {
                     NavHudView()
+                    if let reckoning = model.deadReckoning {
+                        DeadReckoningPill(inTunnel: reckoning.inTunnel)
+                            .transition(.opacity)
+                    }
+                    if !model.motorwayAhead.isEmpty {
+                        MotorwayBar()
+                            .frame(maxWidth: 340)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                 } else {
                     SearchPanel(onOpenDownloads: { sheet = .offline })
                     if settings.offlineMapsOnly || settings.fullyOffline {
@@ -118,7 +129,18 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.2), value: model.navigationActive)
         .animation(.easeInOut(duration: 0.2), value: showCompass)
         .animation(.easeInOut(duration: 0.25), value: model.etaShiftedTo)
-        .onAppear { model.start() }
+        .animation(.easeInOut(duration: 0.25), value: model.motorwayAhead.isEmpty)
+        .animation(.easeInOut(duration: 0.2), value: model.deadReckoning)
+        .animation(.easeInOut(duration: 0.2), value: model.parkedCar == nil)
+        .onAppear {
+            model.start()
+            model.checkSharedInbox()
+        }
+        // Ort aus einer anderen App geteilt, während LumoGo im Hintergrund war.
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { model.checkSharedInbox() }
+        }
+        .onChange(of: settings.parkingMemory) { _ in model.parkingSettingChanged() }
         // Widget, Live-Aktivität (lumogo://…) und Siri-Kurzbefehle.
         .onOpenURL { model.handle($0) }
         .onChange(of: model.requestedSheet) { request in
@@ -135,6 +157,7 @@ struct ContentView: View {
             case .offline: OfflineMapsView()
             case .alongRoute: AlongRouteSheet()
             case .weather: WeatherSheet()
+            case .parking: ParkingSheet()
             }
         }
         .sheet(item: $model.poiSelection) { _ in
@@ -153,6 +176,11 @@ struct ContentView: View {
     private var leftButtons: some View {
         GlassGroup {
         VStack(spacing: 10) {
+            if settings.parkingMemory, model.parkedCar != nil {
+                MapButton(symbol: "car.fill") { sheet = .parking }
+                    .accessibilityLabel("Mein Auto")
+                    .transition(.scale.combined(with: .opacity))
+            }
             MapButton(symbol: "location.magnifyingglass") { sheet = .nearby }
             MapButton(symbol: "star.fill") { sheet = .favorites }
             MapButton(symbol: "icloud.and.arrow.down") { sheet = .offline }

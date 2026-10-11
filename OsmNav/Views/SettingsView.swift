@@ -579,13 +579,24 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Pfeil unten im Bild", symbol: "arrow.down.to.line", color: .cyan, isOn: $settings.navPuckLow)
                 SettingToggle("Straßenname unten anzeigen", symbol: "signpost.right.fill", color: .green, isOn: $settings.showRoadName)
                 SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
+                SettingToggle("Kreuzungsansicht", symbol: "arrow.triangle.branch", color: .indigo, isOn: $settings.junctionView)
+                SettingToggle("Abbiegepfeil auf der Karte", symbol: "arrow.turn.up.right", color: .gray, isOn: $settings.maneuverArrow)
+                SettingToggle("Autobahn-Leiste", symbol: "road.lanes", color: .blue, isOn: $settings.motorwayBar)
+                SettingToggle("Tunnel-Modus", symbol: "location.slash.fill", color: .brown, isOn: $settings.tunnelMode)
                 SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
                 SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
                 SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+            }
+            Section {
+                SettingToggle("Parkplatz merken", symbol: "car.fill", color: .blue, isOn: $settings.parkingMemory)
+            } header: {
+                Text("Parken")
+            } footer: {
+                Text("Kommst du mit dem Auto am Ziel an (oder beendest die Navigation kurz davor), merkt sich LumoGo, wo es steht: Auto-Symbol auf der Karte und Auto-Knopf links — mit Adresse, Notiz, Parkzeit-Erinnerung und „Zu Fuß hinführen“.")
             }
             Section {
                 SettingToggle("Strecke aufzeichnen", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .brown, isOn: $settings.recordTracks)
@@ -789,6 +800,16 @@ private struct SearchSettingsPage: View {
                 Text("Suche")
             }
             FuelPriceSection()
+            Section {
+                SettingToggle("Geteilte Orte übernehmen", symbol: "square.and.arrow.down.fill", color: .blue, isOn: $settings.sharedPlaces)
+                if settings.sharedPlaces {
+                    SettingToggle("Gleich Route berechnen", symbol: "arrow.triangle.turn.up.right.diamond.fill", color: .green, isOn: $settings.sharedPlaceRoute)
+                }
+            } header: {
+                Text("Aus anderen Apps teilen")
+            } footer: {
+                Text("In Apple Karten, Google Maps, WhatsApp, Safari & Co. auf „Teilen“ tippen und „LumoGo“ wählen (ggf. unter „Mehr“ aktivieren): Der Ort wird als Ziel gesetzt. Klappt das automatische Öffnen nicht, übernimmt LumoGo ihn beim nächsten Öffnen. Geteilte Adressen ohne Koordinaten landen in der Suche.")
+            }
         }
         .navigationTitle("Suche & Orte")
     }
