@@ -9,6 +9,12 @@ struct OfflinePackContext: Codable {
     let minZoom: Int
     let maxZoom: Int
     let createdAt: Date
+    /** Nur bei „Route offline sichern“: Korridor-Abschnitte entlang der Route (Suchdaten/Straßennetz je
+     *  Abschnitt statt für [boundingBox]). Optional — ältere Pakete bleiben lesbar. */
+    var corridor: [BoundingBox]? = nil
+
+    /** Gebiete, für die Suchdaten und Straßennetz geladen werden. */
+    var dataAreas: [BoundingBox] { corridor ?? [boundingBox] }
 }
 
 /** Anzeige-Zustand eines Pakets für die Liste. */
@@ -178,6 +184,42 @@ final class OfflineMapsManager: ObservableObject {
         }
     }
 
+    /**
+     * Korridor entlang einer Route als EIN Kartenpaket (MapLibre-Form aus den Abschnitt-Rechtecken,
+     * Zoom 6–14 — z14 braucht das Offline-Routing). Suchdaten + Straßennetz folgen nach dem Download
+     * automatisch, je Abschnitt.
+     */
+    func downloadCorridor(name: String, corridor: [BoundingBox], styleURL: URL) {
+        guard let bounds = RouteCorridor.bounds(corridor) else { return }
+        let ctx = OfflinePackContext(id: UUID().uuidString, name: name, boundingBox: bounds, minZoom: 6, maxZoom: 14,
+                                     createdAt: Date(), corridor: corridor)
+        let polygons = corridor.map { box -> MLNPolygon in
+            var coords = [
+                CLLocationCoordinate2D(latitude: box.south, longitude: box.west),
+                CLLocationCoordinate2D(latitude: box.south, longitude: box.east),
+                CLLocationCoordinate2D(latitude: box.north, longitude: box.east),
+                CLLocationCoordinate2D(latitude: box.north, longitude: box.west),
+                CLLocationCoordinate2D(latitude: box.south, longitude: box.west),
+            ]
+            return MLNPolygon(coordinates: &coords, count: UInt(coords.count))
+        }
+        let region = MLNShapeOfflineRegion(styleURL: styleURL, shape: MLNMultiPolygon(polygons: polygons),
+                                           fromZoomLevel: Double(ctx.minZoom), toZoomLevel: Double(ctx.maxZoom))
+        guard let data = try? JSONEncoder().encode(ctx) else { return }
+        NetworkPolicy.setPackDownloadsActive(true)
+        MLNOfflineStorage.shared.addPack(for: region, withContext: data) { [weak self] pack, error in
+            Task { @MainActor in
+                if let error {
+                    self?.lastMessage = String(localized: "Download konnte nicht gestartet werden: \(error.localizedDescription)")
+                    return
+                }
+                pack?.resume()
+                self?.lastProgressAt[ctx.id] = (0, Date())
+                self?.refresh()
+            }
+        }
+    }
+
     func delete(_ info: OfflinePackInfo) {
         guard let pack = findPack(info.id) else { return }
         OfflinePlacesStore.shared.delete(regionId: info.id)
@@ -214,8 +256,16 @@ final class OfflineMapsManager: ObservableObject {
         Task {
             defer { NetworkPolicy.endDataDownload() }
             do {
-                let places = try await Self.fetchSearchData(ctx.boundingBox, source: source, databasePath: databasePath, fresh: fresh) { fraction in
-                    Task { @MainActor in if self.searchFraction[ctx.id] != nil { self.searchFraction[ctx.id] = fraction } }
+                // Je Gebiet (bei einer Route: je Korridor-Abschnitt) und zusammenführen.
+                let areas = ctx.dataAreas
+                var seen = Set<OverpassPlace>()
+                var places: [OverpassPlace] = []
+                for (i, area) in areas.enumerated() {
+                    let part = try await Self.fetchSearchData(area, source: source, databasePath: databasePath, fresh: fresh) { fraction in
+                        let total = (Double(i) + fraction) / Double(areas.count)
+                        Task { @MainActor in if self.searchFraction[ctx.id] != nil { self.searchFraction[ctx.id] = total } }
+                    }
+                    for place in part where seen.insert(place).inserted { places.append(place) }
                 }
                 OfflinePlacesStore.shared.replace(regionId: ctx.id, places: places)
                 lastMessage = String(localized: "Offline-Suche für „\(ctx.name)“: \(places.count.formatted()) Orte und Adressen gespeichert.")
@@ -266,12 +316,22 @@ final class OfflineMapsManager: ObservableObject {
         Task {
             defer { NetworkPolicy.endDataDownload() }
             do {
-                let (parts, used) = try await Self.buildRoadData(ctx, source: source, includePaths: includePaths, databasePath: databasePath, fresh: fresh) { text, fraction in
-                    Task { @MainActor in
-                        guard self.routingProgress[ctx.id] != nil else { return }
-                        self.routingProgress[ctx.id] = text
-                        self.routingFraction[ctx.id] = fraction
+                let areas = ctx.dataAreas
+                var parts: [(info: RoadDataInfo, data: Data)] = []
+                var used = source
+                for (i, area) in areas.enumerated() {
+                    let built = try await Self.buildRoadData(ctx, area: area, index: areas.count > 1 ? i : nil, source: source,
+                                                             includePaths: includePaths, databasePath: databasePath, fresh: fresh) { text, fraction in
+                        let label = areas.count > 1 ? String(localized: "Abschnitt \(i + 1)/\(areas.count) · \(text)") : text
+                        let total = (Double(i) + fraction) / Double(areas.count)
+                        Task { @MainActor in
+                            guard self.routingProgress[ctx.id] != nil else { return }
+                            self.routingProgress[ctx.id] = label
+                            self.routingFraction[ctx.id] = total
+                        }
                     }
+                    parts += built.parts
+                    if built.used != source { used = built.used }
                 }
                 try RoadDataStore.replace(packId: ctx.id, parts: parts)
                 await OfflineRouter.shared.invalidate()
@@ -292,9 +352,11 @@ final class OfflineMapsManager: ObservableObject {
 
     /** Baut das Straßennetz aus [source], bei Fehler aus der anderen Quelle. Läuft nicht auf dem Main-Thread. */
     private nonisolated static func buildRoadData(
-        _ ctx: OfflinePackContext, source: OfflineRoadSource, includePaths: Bool, databasePath: String?, fresh: Bool,
+        _ ctx: OfflinePackContext, area: BoundingBox, index: Int?, source: OfflineRoadSource, includePaths: Bool, databasePath: String?, fresh: Bool,
         progress: @escaping (String, Double) -> Void
     ) async throws -> (parts: [(info: RoadDataInfo, data: Data)], used: OfflineRoadSource) {
+        // Bei Korridor-Abschnitten bekommt jede Datei eine eigene ID (Paket-ID_Abschnitt_Block).
+        let prefix = index.map { "\(ctx.id)_\($0)" } ?? ctx.id
         let order: [OfflineRoadSource] = source == .tiles ? [.tiles, .overpass] : [.overpass, .tiles]
         var lastError: Error = AppError.noResults
         for candidate in order {
@@ -302,16 +364,16 @@ final class OfflineMapsManager: ObservableObject {
             do {
                 switch candidate {
                 case .tiles:
-                    let parts = try await TileRoadBuilder.download(ctx.boundingBox, includePaths: includePaths, databasePath: databasePath,
+                    let parts = try await TileRoadBuilder.download(area, includePaths: includePaths, databasePath: databasePath,
                                                                    preferNetwork: fresh, progress: progress)
                     return (parts.enumerated().map { i, part in
-                        (RoadDataInfo(id: "\(ctx.id)_\(i)", boundingBox: part.boundingBox, nodeCount: part.nodeCount, createdAt: Date(), packId: ctx.id), part.data)
+                        (RoadDataInfo(id: "\(prefix)_\(i)", boundingBox: part.boundingBox, nodeCount: part.nodeCount, createdAt: Date(), packId: ctx.id), part.data)
                     }, .tiles)
                 case .overpass:
-                    let (data, nodeCount) = try await RoadDataBuilder.download(ctx.boundingBox, includePaths: includePaths) { done, total in
+                    let (data, nodeCount) = try await RoadDataBuilder.download(area, includePaths: includePaths) { done, total in
                         progress("Overpass \(done)/\(total)", Double(done) / Double(max(total, 1)))
                     }
-                    return ([(RoadDataInfo(id: ctx.id, boundingBox: ctx.boundingBox, nodeCount: nodeCount, createdAt: Date(), packId: ctx.id), data)], .overpass)
+                    return ([(RoadDataInfo(id: prefix, boundingBox: area, nodeCount: nodeCount, createdAt: Date(), packId: ctx.id), data)], .overpass)
                 }
             } catch {
                 if error is CancellationError { throw error }

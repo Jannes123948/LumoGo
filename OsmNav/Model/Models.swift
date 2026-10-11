@@ -53,9 +53,36 @@ struct Waypoint: Identifiable, Hashable {
 /** Gespeicherter Ort — [isHome] markiert höchstens einen Eintrag als "Zuhause". */
 struct Favorite: Codable, Identifiable, Hashable {
     let id: String
-    let name: String
+    var name: String
     let point: LatLon
     let isHome: Bool
+    // Ab 0.0.9 (optional, ältere Einträge bleiben lesbar):
+    /** SF-Symbol für Liste und Karte; nil = Stern bzw. Haus. */
+    var symbol: String? = nil
+    /** Farbe 0xRRGGBB; nil = Standard (Orange, Zuhause Blau). */
+    var colorHex: Int? = nil
+    /** Gruppe („Arbeit“, „Familie“); nil/leer = ohne Gruppe. */
+    var group: String? = nil
+
+    var displaySymbol: String { symbol ?? (isHome ? "house.fill" : "star.fill") }
+    var displayColorHex: Int { colorHex ?? (isHome ? 0x1565C0 : 0xF57C00) }
+    var groupName: String? {
+        guard let group = group?.trimmingCharacters(in: .whitespaces), !group.isEmpty else { return nil }
+        return group
+    }
+}
+
+/** Auswahl für Favoriten-Symbole und -Farben (alle ab iOS 16 verfügbar). */
+enum FavoriteStyle {
+    static let symbols = [
+        "star.fill", "house.fill", "briefcase.fill", "building.2.fill", "person.2.fill", "heart.fill",
+        "cart.fill", "fork.knife", "cup.and.saucer.fill", "figure.run", "dumbbell.fill", "graduationcap.fill",
+        "cross.case.fill", "stethoscope", "car.fill", "fuelpump.fill", "parkingsign", "airplane",
+        "tram.fill", "leaf.fill", "pawprint.fill", "gamecontroller.fill", "music.note", "book.fill",
+        "tent.fill", "mountain.2.fill", "bed.double.fill", "wrench.and.screwdriver.fill", "scissors", "gift.fill",
+        "flag.fill", "building.columns.fill"
+    ]
+    static let colors: [Int] = [0xF57C00, 0xD32F2F, 0xE91E8C, 0x7B3FE4, 0x1565C0, 0x00838F, 0x2E7D32, 0x795548, 0x455A64]
 }
 
 /** Eine abgeschlossene Fahrt (nur bei tatsächlicher Ankunft geloggt, nicht bei Abbruch). */
@@ -73,6 +100,8 @@ struct Trip: Codable, Identifiable, Hashable {
     var maxKmh: Double? = nil
     /** Strecke liegt in [TripTrackStore] (GPX-Export, Karte). */
     var hasTrack: Bool? = nil
+    /** Geschätzte Spritkosten in Euro (ab 0.0.9, nur mit Profil Auto). */
+    var fuelCost: Double? = nil
 }
 
 /** Ein aufgezeichneter Streckenpunkt (kompakt gespeichert). */

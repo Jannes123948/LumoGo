@@ -140,10 +140,115 @@ actor OfflineRouter {
         let time: Double
     }
 
+    /**
+     * Etappe von [start] nach [target]. Liegt der nächste Straßenpunkt auf einem Stück ohne Verbindung
+     * zum Rest (Fußgängerzone mit Lieferverkehr, Werksgelände, Rand eines schmalen Routen-Korridors),
+     * findet A* nichts — dann die nächstbesten Straßen in der Nähe probieren (anderer Weg, ≤ 400 m).
+     * Gefunden an der Pirnaer Altstadt: Rohziel → keine Route, 110 m weiter (OSRMs Einrastpunkt) ging es.
+     */
     private func routeLeg(_ g: RoadGraph, from start: LatLon, to target: LatLon, profile: RoutingProfile) throws -> Leg {
-        guard let s = nearestEdge(g, start, profile), let t = nearestEdge(g, target, profile) else {
-            throw OfflineRoutingError.notOnRoadNetwork
+        // Kandidaten auf abgeschlossenen „Inseln“ (< 300 erreichbare Knoten) nach hinten.
+        func connectedFirst(_ snaps: [Snap]) -> [Snap] {
+            snaps.filter { !isIsland(g, $0.edge, profile) } + snaps.filter { isIsland(g, $0.edge, profile) }
         }
+        let starts = connectedFirst(nearestEdges(g, start, profile))
+        let targets = connectedFirst(nearestEdges(g, target, profile))
+        guard let s0 = starts.first, let t0 = targets.first else { throw OfflineRoutingError.notOnRoadNetwork }
+        var attempts: [(Snap, Snap)] = [(s0, t0)]
+        for t in targets.dropFirst().prefix(2) { attempts.append((s0, t)) }
+        for s in starts.dropFirst().prefix(2) { attempts.append((s, t0)) }
+        var lastError: Error = OfflineRoutingError.noRoute
+        for (s, t) in attempts {
+            do {
+                return try routeLeg(g, s: s, t: t, target: target, profile: profile)
+            } catch {
+                lastError = error
+            }
+        }
+        // Ziel liegt in einer Einbahn-„Tasche“ (nur hinaus, nicht hinein befahrbar — gefunden in der
+        // Pirnaer Altstadt, auch mit normalen Paketen): bis zum nächsten erreichbaren Punkt ≤ 500 m fahren.
+        if let closest = nearestReachable(g, from: s0, to: target, profile: profile) {
+            return try routeLeg(g, s: s0, t: closest, target: target, profile: profile)
+        }
+        throw lastError
+    }
+
+    /** Vom Start aus (Fahrtrichtungen beachtet) erreichbarer Straßenknoten, der [target] am nächsten liegt (≤ 500 m). */
+    private func nearestReachable(_ g: RoadGraph, from s: Snap, to target: LatLon, profile: RoutingProfile) -> Snap? {
+        let sa = Int(g.edgeA[s.edge]), sb = Int(g.edgeB[s.edge])
+        var queue: [Int] = []
+        var seen = Set<Int>()
+        if g.canTraverse(s.edge, from: sa, profile) { queue.append(sb) }
+        if g.canTraverse(s.edge, from: sb, profile) { queue.append(sa) }
+        seen.formUnion(queue)
+        var best: (node: Int, distance: Double)?
+        while let u = queue.popLast() {
+            let d = GeoUtils.distanceMeters(g.point(u), target)
+            if d < (best?.distance ?? 500) { best = (u, d) }
+            for k in Int(g.adjStart[u])..<Int(g.adjStart[u + 1]) {
+                let e = Int(g.adjEdge[k])
+                guard g.canTraverse(e, from: u, profile) else { continue }
+                let v = g.other(e, u)
+                if seen.insert(v).inserted { queue.append(v) }
+            }
+        }
+        guard let node = best?.node else { return nil }
+        // Einrastpunkt genau auf dem Knoten: eine Kante, über die man ihn erreicht.
+        for k in Int(g.adjStart[node])..<Int(g.adjStart[node + 1]) {
+            let e = Int(g.adjEdge[k])
+            let other = g.other(e, node)
+            guard seen.contains(other), g.canTraverse(e, from: other, profile) else { continue }
+            return Snap(edge: e, t: Int(g.edgeB[e]) == node ? 1 : 0, point: g.point(node), distance: best!.distance)
+        }
+        return nil
+    }
+
+    /** Nächste Kante, dazu bis zu 5 weitere auf ANDEREN Wegen (≤ 400 m) als Ersatz-Einrastpunkte. */
+    private func nearestEdges(_ g: RoadGraph, _ p: LatLon, _ profile: RoutingProfile) -> [Snap] {
+        guard let first = nearestEdge(g, p, profile) else { return [] }
+        var result = [first]
+        var usedWays: Set<Int32> = [g.edgeWay[first.edge]]
+        let row = RoadGraph.cell(p.latitude), col = RoadGraph.cell(p.longitude)
+        var candidates: [Snap] = []
+        for r in (row - 1)...(row + 1) {
+            for c in (col - 1)...(col + 1) {
+                for e32 in g.grid[RoadGraph.key(r, c)] ?? [] {
+                    let e = Int(e32)
+                    guard g.isUsable(e, profile) else { continue }
+                    let a = g.point(Int(g.edgeA[e])), b = g.point(Int(g.edgeB[e]))
+                    let q = GeoUtils.closestPointOnSegment(p, a, b)
+                    let d = GeoUtils.distanceMeters(p, q)
+                    guard d <= 400 else { continue }
+                    let len = GeoUtils.distanceMeters(a, b)
+                    candidates.append(Snap(edge: e, t: len > 0 ? GeoUtils.distanceMeters(a, q) / len : 0, point: q, distance: d))
+                }
+            }
+        }
+        for candidate in candidates.sorted(by: { $0.distance < $1.distance }) where result.count < 6 {
+            if usedWays.insert(g.edgeWay[candidate.edge]).inserted { result.append(candidate) }
+        }
+        return result
+    }
+
+    /** Erreicht man von der Kante aus (Richtungen egal) weniger als [limit] Knoten, ist sie eine Insel. */
+    private func isIsland(_ g: RoadGraph, _ edge: Int, _ profile: RoutingProfile, limit: Int = 300) -> Bool {
+        var seen: Set<Int> = [Int(g.edgeA[edge]), Int(g.edgeB[edge])]
+        var queue = Array(seen)
+        while let u = queue.popLast() {
+            for k in Int(g.adjStart[u])..<Int(g.adjStart[u + 1]) {
+                let e = Int(g.adjEdge[k])
+                guard g.isUsable(e, profile) else { continue }
+                let v = g.other(e, u)
+                if seen.insert(v).inserted {
+                    if seen.count >= limit { return false }
+                    queue.append(v)
+                }
+            }
+        }
+        return true
+    }
+
+    private func routeLeg(_ g: RoadGraph, s: Snap, t: Snap, target: LatLon, profile: RoutingProfile) throws -> Leg {
         let n = g.nodeCount
         let maxSpeed: Double = profile == .car ? 130 / 3.6 : (profile == .bike ? 17 / 3.6 : 5 / 3.6)
         func h(_ node: Int) -> Double { GeoUtils.distanceMeters(g.point(node), target) / maxSpeed }

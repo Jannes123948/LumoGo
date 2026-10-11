@@ -11,8 +11,8 @@ struct TripStatsSection: View {
         Section {
             HStack(spacing: 0) {
                 statTile(String(localized: "\(stats.count)"), String(localized: "Fahrten"))
-                statTile(FormatUtils.formatDistance(stats.totalMeters), "gesamt")
-                statTile(FormatUtils.formatDuration(stats.totalSeconds), "unterwegs")
+                statTile(FormatUtils.formatDistance(stats.totalMeters), String(localized: "gesamt"))
+                statTile(FormatUtils.formatDuration(stats.totalSeconds), String(localized: "unterwegs"))
             }
             .padding(.vertical, 4)
 
@@ -33,6 +33,9 @@ struct TripStatsSection: View {
 
             if let longest = stats.longest {
                 row(String(localized: "Längste Fahrt"), "\(FormatUtils.formatDistance(longest.drivenMeters ?? longest.distanceMeters)) · \(longest.destinationName.components(separatedBy: ",").first ?? "")")
+            }
+            if stats.fuelCost > 0 {
+                row(String(localized: "Spritkosten gesamt"), FormatUtils.euro(stats.fuelCost))
             }
             if let fastest = stats.fastest, let max = fastest.maxKmh {
                 row(String(localized: "Höchstgeschwindigkeit"), String(localized: "\(Int(max.rounded())) km/h"))
@@ -82,11 +85,14 @@ struct TripStats {
     let longest: Trip?
     let fastest: Trip?
     let topDestinations: [(name: String, count: Int)]
+    /** Summe der geschätzten Spritkosten (Euro). */
+    let fuelCost: Double
 
     init(trips: [Trip], now: Date = Date(), calendar: Calendar = .current) {
         count = trips.count
         totalMeters = trips.reduce(0) { $0 + ($1.drivenMeters ?? $1.distanceMeters) }
         totalSeconds = trips.reduce(0) { $0 + $1.durationSeconds }
+        fuelCost = trips.reduce(0) { $0 + ($1.fuelCost ?? 0) }
         longest = trips.max { ($0.drivenMeters ?? $0.distanceMeters) < ($1.drivenMeters ?? $1.distanceMeters) }
         fastest = trips.filter { $0.maxKmh != nil }.max { ($0.maxKmh ?? 0) < ($1.maxKmh ?? 0) }
 

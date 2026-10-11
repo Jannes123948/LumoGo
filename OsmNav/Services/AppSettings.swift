@@ -215,6 +215,8 @@ final class AppSettings: ObservableObject {
     @Published var buildings3D: Bool { didSet { defaults.set(buildings3D, forKey: "buildings_3d") } }
     @Published var widerMotorways: Bool { didSet { defaults.set(widerMotorways, forKey: "wider_motorways") } }
     @Published var poiTapEnabled: Bool { didSet { defaults.set(poiTapEnabled, forKey: "poi_tap") } }
+    /** Favoriten mit ihrem Symbol auf der Karte zeigen. */
+    @Published var favoritesOnMap: Bool { didSet { defaults.set(favoritesOnMap, forKey: "favorites_on_map") } }
     @Published var snapToRoad: Bool { didSet { defaults.set(snapToRoad, forKey: "snap_to_road") } }
     @Published var compassWhenIdle: Bool { didSet { defaults.set(compassWhenIdle, forKey: "compass_idle") } }
     @Published var showCompassButton: Bool { didSet { defaults.set(showCompassButton, forKey: "show_compass_button") } }
@@ -312,6 +314,24 @@ final class AppSettings: ObservableObject {
     @Published var fuelSortByPrice: Bool { didSet { defaults.set(fuelSortByPrice, forKey: "fuel_sort_price") } }
     /** Preise als Tankstellen-Preistafel („1,73⁹“) statt als Text — von `FuelPriceView` per @AppStorage gelesen. */
     @Published var fuelPriceSign: Bool { didSet { defaults.set(fuelPriceSign, forKey: "fuel_price_sign") } }
+    /** Gefahrenstellen aus OSM (Bahnübergang, Schule, Schwelle, Gefahrzeichen) anzeigen + ansagen. */
+    @Published var hazardWarnings: Bool { didSet { defaults.set(hazardWarnings, forKey: "hazard_warnings") } }
+    /** Scharfe Kurven (aus der Routenlinie) außerorts ansagen. */
+    @Published var curveWarnings: Bool { didSet { defaults.set(curveWarnings, forKey: "curve_warnings") } }
+    /** „Route offline sichern“ im Routen-Panel (Korridor-Paket entlang der Route). */
+    @Published var routeOffline: Bool { didSet { defaults.set(routeOffline, forKey: "route_offline") } }
+    /** „Ankommen um …“ im Routen-Panel (Losfahrzeit + Erinnerung). */
+    @Published var arrivalPlanner: Bool { didSet { defaults.set(arrivalPlanner, forKey: "arrival_planner") } }
+    /** Termine mit Ort aus dem Kalender als Ziel anbieten. */
+    @Published var calendarTrips: Bool { didSet { defaults.set(calendarTrips, forKey: "calendar_trips") } }
+    /** Puffer auf die Fahrzeit (Minuten) — OSRM kennt keinen Verkehr. */
+    @Published var departureBuffer: Int { didSet { defaults.set(departureBuffer, forKey: "departure_buffer") } }
+    /** Spritkosten je Route + im Fahrtenbuch (nur Profil Auto). */
+    @Published var fuelCostEnabled: Bool { didSet { defaults.set(fuelCostEnabled, forKey: "fuel_cost") } }
+    /** Verbrauch in l/100 km. */
+    @Published var fuelConsumption: Double { didSet { defaults.set(fuelConsumption, forKey: "fuel_consumption") } }
+    /** Eigener Literpreis (ohne Tankerkönig-Schlüssel bzw. wenn keine Preise kommen). */
+    @Published var fuelPriceManual: Double { didSet { defaults.set(fuelPriceManual, forKey: "fuel_price_manual") } }
 
     init() {
         mapEngine = MapEngine(rawValue: defaults.string(forKey: "map_engine") ?? "") ?? .vector
@@ -332,6 +352,7 @@ final class AppSettings: ObservableObject {
         buildings3D = defaults.object(forKey: "buildings_3d") as? Bool ?? true
         widerMotorways = defaults.object(forKey: "wider_motorways") as? Bool ?? true
         poiTapEnabled = defaults.object(forKey: "poi_tap") as? Bool ?? true
+        favoritesOnMap = defaults.object(forKey: "favorites_on_map") as? Bool ?? true
         snapToRoad = defaults.object(forKey: "snap_to_road") as? Bool ?? true
         compassWhenIdle = defaults.object(forKey: "compass_idle") as? Bool ?? true
         showCompassButton = defaults.object(forKey: "show_compass_button") as? Bool ?? true
@@ -387,6 +408,15 @@ final class AppSettings: ObservableObject {
         fuelType = FuelType(rawValue: defaults.string(forKey: "fuel_type") ?? "") ?? .e10
         fuelSortByPrice = defaults.object(forKey: "fuel_sort_price") as? Bool ?? true
         fuelPriceSign = defaults.object(forKey: "fuel_price_sign") as? Bool ?? true
+        fuelCostEnabled = defaults.object(forKey: "fuel_cost") as? Bool ?? true
+        arrivalPlanner = defaults.object(forKey: "arrival_planner") as? Bool ?? true
+        routeOffline = defaults.object(forKey: "route_offline") as? Bool ?? true
+        hazardWarnings = defaults.object(forKey: "hazard_warnings") as? Bool ?? true
+        curveWarnings = defaults.object(forKey: "curve_warnings") as? Bool ?? true
+        calendarTrips = defaults.object(forKey: "calendar_trips") as? Bool ?? true
+        departureBuffer = defaults.object(forKey: "departure_buffer") as? Int ?? 10
+        fuelConsumption = defaults.object(forKey: "fuel_consumption") as? Double ?? 6.5
+        fuelPriceManual = defaults.object(forKey: "fuel_price_manual") as? Double ?? 1.75
     }
 
     // MARK: - Farben
@@ -446,6 +476,7 @@ final class AppSettings: ObservableObject {
         buildings3D = true
         widerMotorways = true
         poiTapEnabled = true
+        favoritesOnMap = true
         snapToRoad = true
         compassWhenIdle = true
         showCompassButton = true
@@ -492,6 +523,15 @@ final class AppSettings: ObservableObject {
         fuelType = .e10
         fuelSortByPrice = true
         fuelPriceSign = true
+        fuelCostEnabled = true
+        arrivalPlanner = true
+        routeOffline = true
+        hazardWarnings = true
+        curveWarnings = true
+        calendarTrips = true
+        departureBuffer = 10
+        fuelConsumption = 6.5
+        fuelPriceManual = 1.75
         // Der Tankerkönig-Schlüssel bleibt (ist eher ein Zugangsdatum als eine Einstellung).
     }
 }

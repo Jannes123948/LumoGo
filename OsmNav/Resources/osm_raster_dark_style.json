@@ -4,7 +4,9 @@
   "sources": {
     "osm": {
       "type": "raster",
-      "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tiles": [
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
       "tileSize": 256,
       "minzoom": 0,
       "maxzoom": 19,
@@ -12,7 +14,13 @@
     }
   },
   "layers": [
-    { "id": "background", "type": "background", "paint": { "background-color": "#1c1c1e" } },
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#1c1c1e"
+      }
+    },
     {
       "id": "osm",
       "type": "raster",
@@ -25,5 +33,6 @@
         "raster-contrast": 0.1
       }
     }
-  ]
+  ],
+  "glyphs": "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf"
 }

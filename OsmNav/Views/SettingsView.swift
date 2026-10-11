@@ -569,11 +569,14 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Routenvorschau", symbol: "list.bullet.rectangle.fill", color: .indigo, isOn: $settings.routePreviewEnabled)
                 SettingToggle("Wetter auf der Route", symbol: "cloud.sun.fill", color: .cyan, isOn: $settings.routeWeather)
                 SettingToggle("Wetter-Knopf auf der Karte", symbol: "cloud.sun.rain.fill", color: .blue, isOn: $settings.weatherButton)
+                SettingToggle("„Route offline sichern“", symbol: "arrow.down.circle.fill", color: .purple, isOn: $settings.routeOffline)
+                SettingToggle("„Ankommen um …“", symbol: "alarm.fill", color: .orange, isOn: $settings.arrivalPlanner)
+                SettingToggle("Termine aus dem Kalender", symbol: "calendar", color: .red, isOn: $settings.calendarTrips)
                 SettingToggle("GPX-Spur auf der Karte", symbol: "point.topleft.down.curvedto.point.bottomright.up", color: .orange, isOn: $settings.showTourTrack)
             } header: {
                 Text("Route")
             } footer: {
-                Text("Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“).")
+                Text("Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“). Route offline sichern (Routen-Panel → „Mehr“): Karte, Suche und Straßennetz in einem 4 km breiten Streifen entlang der Route laden — für Funklöcher und Ausland; erscheint unter Offline-Karten. Ankommen um: Losfahrzeit aus Wunsch-Ankunft, Fahrzeit und Puffer, mit Erinnerung (Tippen startet die Navigation). Kalender: Termine mit Ort der nächsten 48 Stunden in „Favoriten & Routen“ und „Ankommen um …“.")
             }
             Section {
                 Picker(selection: $settings.alongRouteKm) {
@@ -604,13 +607,32 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Abbiegepfeil auf der Karte", symbol: "arrow.turn.up.right", color: .gray, isOn: $settings.maneuverArrow)
                 SettingToggle("Autobahn-Leiste", symbol: "road.lanes", color: .blue, isOn: $settings.motorwayBar)
                 SettingToggle("Tunnel-Modus", symbol: "location.slash.fill", color: .brown, isOn: $settings.tunnelMode)
+                SettingToggle("Gefahrenstellen", symbol: "exclamationmark.triangle.fill", color: .yellow, isOn: $settings.hazardWarnings)
+                SettingToggle("Scharfe Kurven ansagen", symbol: "arrow.turn.up.right", color: .red, isOn: $settings.curveWarnings)
                 SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
                 SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
                 SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Gefahrenstellen: Bahnübergänge, Bodenschwellen, Gefahrzeichen (Wildwechsel, Steinschlag …) und Schulen/Kindergärten (werktags 6–18 Uhr) aus OpenStreetMap — gelbes Schild und Ansage vorher (nur online berechnete Auto-Routen). Scharfe Kurven: aus dem Routenverlauf erkannt, Ansage ab 50 km/h. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+            }
+            Section {
+                SettingToggle("Spritkosten anzeigen", symbol: "eurosign.circle.fill", color: .green, isOn: $settings.fuelCostEnabled)
+                if settings.fuelCostEnabled {
+                    Stepper(value: $settings.fuelConsumption, in: 2...25, step: 0.5) {
+                        SettingsRow(title: "Verbrauch", symbol: "drop.fill", color: .orange,
+                                    value: String(localized: "\(FormatUtils.decimal(settings.fuelConsumption, digits: 1)) l/100 km"))
+                    }
+                    Stepper(value: $settings.fuelPriceManual, in: 0.5...4, step: 0.05) {
+                        SettingsRow(title: "Literpreis", symbol: "fuelpump.fill", color: .blue,
+                                    value: FormatUtils.decimal(settings.fuelPriceManual, digits: 2) + " €")
+                    }
+                }
+            } header: {
+                Text("Spritkosten")
+            } footer: {
+                Text("Geschätzte Kosten je Route (Profil Auto) und im Fahrtenbuch: Strecke × Verbrauch × Literpreis. Mit Tankerkönig-Schlüssel (Suche & Orte → Spritpreise) wird der aktuelle Durchschnittspreis der Tankstellen in der Nähe genommen, sonst der eigene Literpreis.")
             }
             Section {
                 SettingToggle("Parkplatz merken", symbol: "car.fill", color: .blue, isOn: $settings.parkingMemory)
@@ -802,10 +824,11 @@ private struct SearchSettingsPage: View {
             Section {
                 SettingToggle("Orte auf der Karte antippbar", symbol: "hand.tap.fill", color: .purple, isOn: $settings.poiTapEnabled)
                 SettingToggle("„Geöffnet/Geschlossen“ in Listen", symbol: "clock.fill", color: .green, isOn: $settings.showOpenStatus)
+                SettingToggle("Favoriten auf der Karte", symbol: "star.circle.fill", color: .orange, isOn: $settings.favoritesOnMap)
             } header: {
                 Text("Orte")
             } footer: {
-                Text("Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap.")
+                Text("Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap. Favoriten erscheinen mit ihrem Symbol und ihrer Farbe auf der Karte (Name ab mittlerem Zoom); Symbol, Farbe und Gruppe lassen sich beim Speichern und in der Favoritenliste (nach rechts wischen → Bearbeiten) ändern.")
             }
             Section {
                 SettingToggle("Suchverlauf anzeigen", symbol: "clock.arrow.circlepath", color: .blue, isOn: $settings.recentSearchesEnabled)

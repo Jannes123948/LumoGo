@@ -19,10 +19,23 @@ enum FavoritesStore {
     private static let homeId = "home"
     /** Nach jeder Änderung (die App aktualisiert damit die Siri-Favoriten). */
     static var onChange: (() -> Void)?
+    /** Benachrichtigung bei jeder Änderung (Favoriten auf der Karte). */
+    static let changed = Notification.Name("LumoGoFavoritesChanged")
 
     private static func save(_ favorites: [Favorite]) {
         DefaultsCodable.save(key, favorites)
         onChange?()
+        NotificationCenter.default.post(name: changed, object: nil)
+    }
+
+    /** Name, Symbol, Farbe, Gruppe eines Favoriten ändern. */
+    static func update(_ favorite: Favorite) {
+        save(list().map { $0.id == favorite.id ? favorite : $0 })
+    }
+
+    /** Vorhandene Gruppennamen (für die Auswahl). */
+    static func groups() -> [String] {
+        Array(Set(list().compactMap(\.groupName))).sorted { $0.localizedCompare($1) == .orderedAscending }
     }
 
     static func list() -> [Favorite] {
@@ -30,8 +43,9 @@ enum FavoritesStore {
         return favorites.filter(\.isHome) + favorites.filter { !$0.isHome }
     }
 
-    static func add(name: String, point: LatLon) {
-        save(list() + [Favorite(id: UUID().uuidString, name: name, point: point, isHome: false)])
+    static func add(name: String, point: LatLon, symbol: String? = nil, colorHex: Int? = nil, group: String? = nil) {
+        save(list() + [Favorite(id: UUID().uuidString, name: name, point: point, isHome: false,
+                                symbol: symbol, colorHex: colorHex, group: group)])
     }
 
     static func remove(id: String) {
@@ -41,13 +55,21 @@ enum FavoritesStore {
     static func home() -> Favorite? { list().first(where: \.isHome) }
 
     /** Setzt [point]/[name] als Zuhause — ersetzt einen zuvor gesetzten Zuhause-Eintrag. */
-    static func setHome(name: String, point: LatLon) {
-        save(list().filter { !$0.isHome } + [Favorite(id: homeId, name: name, point: point, isHome: true)])
+    static func setHome(name: String, point: LatLon, symbol: String? = nil, colorHex: Int? = nil, group: String? = nil) {
+        save(list().filter { !$0.isHome } + [Favorite(id: homeId, name: name, point: point, isHome: true,
+                                                      symbol: symbol, colorHex: colorHex, group: group)])
     }
 
-    /** Export-Format kompatibel zur Android-App (`name`/`lat`/`lon`/`isHome`). */
+    /** Export-Format kompatibel zur Android-App (`name`/`lat`/`lon`/`isHome`; Symbol/Farbe/Gruppe als
+     *  Zusatzfelder, die Android ignoriert). */
     static func exportJson() -> Data {
-        let array = list().map { ["name": $0.name, "lat": $0.point.latitude, "lon": $0.point.longitude, "isHome": $0.isHome] as [String: Any] }
+        let array = list().map { favorite -> [String: Any] in
+            var entry: [String: Any] = ["name": favorite.name, "lat": favorite.point.latitude, "lon": favorite.point.longitude, "isHome": favorite.isHome]
+            entry["symbol"] = favorite.symbol
+            entry["color"] = favorite.colorHex
+            entry["group"] = favorite.groupName
+            return entry
+        }
         return (try? JSONSerialization.data(withJSONObject: array, options: [.prettyPrinted])) ?? Data("[]".utf8)
     }
 
@@ -58,10 +80,11 @@ enum FavoritesStore {
         var imported = 0
         for obj in array {
             guard let name = obj["name"] as? String, let lat = obj["lat"] as? Double, let lon = obj["lon"] as? Double else { continue }
+            let symbol = obj["symbol"] as? String, color = obj["color"] as? Int, group = obj["group"] as? String
             if (obj["isHome"] as? Bool ?? false) && home() == nil {
-                setHome(name: name, point: LatLon(lat, lon))
+                setHome(name: name, point: LatLon(lat, lon), symbol: symbol, colorHex: color, group: group)
             } else {
-                add(name: name, point: LatLon(lat, lon))
+                add(name: name, point: LatLon(lat, lon), symbol: symbol, colorHex: color, group: group)
             }
             imported += 1
         }

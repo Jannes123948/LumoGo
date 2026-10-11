@@ -123,7 +123,7 @@ enum AlongRouteSearch {
             let (along, offset) = project(p, onto: line, cumulative: cumulative)
             guard along > 20, offset <= corridor else { return nil }
             let name = station.place.map { "\(station.name) (\($0))" } ?? station.name
-            let detail = station.priceText.map { "\(type.label) \($0)" } ?? "geschlossen"
+            let detail = station.priceText.map { "\(type.label) \($0)" } ?? String(localized: "geschlossen")
             return AlongRoutePlace(id: station.id, name: name, point: p, alongMeters: along,
                                    offsetMeters: offset, detail: detail, price: station.price, fuelType: type)
         }

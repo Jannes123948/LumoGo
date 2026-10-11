@@ -12,6 +12,7 @@ struct LumoGoWidgetsBundle: WidgetBundle {
     var body: some Widget {
         NavigationWidget()
         QuickActionsWidget()
+        ParkedCarWidget()
         NavLiveActivityWidget()
     }
 }

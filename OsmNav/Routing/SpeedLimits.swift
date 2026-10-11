@@ -79,6 +79,8 @@ final class SpeedLimitMap {
 
     private(set) var segments: [Segment] = []
     private(set) var junctions: [Junction] = []
+    /** Gefahrenstellen (Bahnübergänge, Schwellen, `hazard=*`, Schulen am Straßenrand). */
+    private(set) var hazards: [Hazard] = []
     private var lastIndex = 0
 
     var isEmpty: Bool { segments.isEmpty }
@@ -135,8 +137,8 @@ final class SpeedLimitMap {
      * 10 gültigen Stellen aus („11556072209“ → „11556072210.0“) — ohne Korrektur fehlten an neueren
      * OSM-Knoten Tempolimit und Straßenart.
      */
-    static func load(nodeLegs: [[Int64]], geometry: [LatLon] = [],
-                     onUpdate: @escaping @MainActor ([Segment], [Junction]) -> Void) async {
+    static func load(nodeLegs: [[Int64]], geometry: [LatLon] = [], includeHazards: Bool = false,
+                     onUpdate: @escaping @MainActor ([Segment], [Junction], [Hazard]) -> Void) async {
         // Routenknoten je Etappe mit Koordinate (falls die Anzahl zur Linie passt).
         let expected = nodeLegs.reduce(0) { $0 + $1.count } - max(nodeLegs.count - 1, 0)
         let coordinatesUsable = geometry.count == expected
@@ -159,6 +161,7 @@ final class SpeedLimitMap {
         var nodeIndex = NodeIndex()
         var junctions: [Int64: Junction] = [:]
         var junctionOrder: [Int64] = []
+        var hazards: [String: Hazard] = [:]
 
         var start = 0
         while start < orderedNodes.count {
@@ -174,13 +177,20 @@ final class SpeedLimitMap {
             .w out geom qt;
             node(w.w)["highway"="motorway_junction"];
             out qt;
-            """
+            """ + (includeHazards ? """
+
+            node(w.w)[~"^(railway|hazard|traffic_calming)$"~"."];
+            out qt;
+            nwr["amenity"~"^(school|kindergarten)$"](around.w:60);
+            out center tags qt;
+            """ : "")
             guard let data = try? await OverpassClient.rawQuery(query, retryCount: 2),
-                  let (ways, nodes) = parse(data) else { continue }
+                  let (ways, nodes, foundHazards) = parse(data) else { continue }
             for junction in nodes where junctions[junction.id] == nil {
                 junctions[junction.id] = junction
                 junctionOrder.append(junction.id)
             }
+            for hazard in foundHazards { hazards[hazard.id] = hazard }
             for way in ways {
                 allWays.append(way)
                 for (id, point) in zip(way.nodes, way.points) { nodeIndex.add(id, point) }
@@ -211,7 +221,7 @@ final class SpeedLimitMap {
                     }
                 }
             }
-            await onUpdate(pairs.compactMap { found[$0] }, junctionOrder.compactMap { junctions[$0] })
+            await onUpdate(pairs.compactMap { found[$0] }, junctionOrder.compactMap { junctions[$0] }, Array(hazards.values))
         }
     }
 
@@ -260,14 +270,27 @@ final class SpeedLimitMap {
         let motorway: Bool
     }
 
-    private static func parse(_ data: Data) -> ([WayInfo], [Junction])? {
+    private static func parse(_ data: Data) -> ([WayInfo], [Junction], [Hazard])? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let elements = root["elements"] as? [[String: Any]] else { return nil }
         var junctions: [Junction] = []
         var ways: [WayInfo] = []
+        var hazards: [Hazard] = []
         for el in elements {
             guard let tags = el["tags"] as? [String: String] else { continue }
+            // Gefahrenstellen: Punkte auf der Straße bzw. Schulen (Fläche → Mittelpunkt).
+            if tags["highway"] != "motorway_junction", tags["highway"] == nil || el["type"] as? String == "node",
+               let kind = HazardKind.from(tags: tags) {
+                let center = el["center"] as? [String: Any]
+                if let lat = (el["lat"] as? Double) ?? (center?["lat"] as? Double),
+                   let lon = (el["lon"] as? Double) ?? (center?["lon"] as? Double),
+                   let id = (el["id"] as? NSNumber)?.int64Value {
+                    hazards.append(Hazard(id: "\(el["type"] as? String ?? "")\(id)", kind: kind, point: LatLon(lat, lon)))
+                }
+                continue
+            }
             if el["type"] as? String == "node" {
+                guard tags["highway"] == "motorway_junction" else { continue }
                 guard let id = (el["id"] as? NSNumber)?.int64Value, let lat = el["lat"] as? Double, let lon = el["lon"] as? Double else { continue }
                 func tag(_ key: String) -> String? {
                     guard let v = tags[key]?.trimmingCharacters(in: .whitespaces), !v.isEmpty else { return nil }
@@ -296,12 +319,13 @@ final class SpeedLimitMap {
                                 backward: SpeedLimit.parse(tags["maxspeed:backward"]) ?? general,
                                 tunnel: tunnel, motorway: tags["highway"] == "motorway"))
         }
-        return (ways, junctions)
+        return (ways, junctions, hazards)
     }
 
-    func replace(_ newSegments: [Segment], junctions newJunctions: [Junction] = []) {
+    func replace(_ newSegments: [Segment], junctions newJunctions: [Junction] = [], hazards newHazards: [Hazard] = []) {
         segments = newSegments
         junctions = newJunctions
+        hazards = newHazards
         lastIndex = min(lastIndex, max(0, newSegments.count - 1))
     }
 }

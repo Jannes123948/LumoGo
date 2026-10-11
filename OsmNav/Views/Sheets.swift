@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 
 struct FavoritesView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var favorites = FavoritesStore.list()
     @State private var savedRoutes = SavedRoutesStore.list()
@@ -13,6 +14,21 @@ struct FavoritesView: View {
     @State private var importKind: ImportKind?
     @State private var savingRoute = false
     @State private var routeName = ""
+    @State private var editing: Favorite?
+
+    /** Zuhause oben, dann Gruppen alphabetisch, zuletzt Favoriten ohne Gruppe. */
+    private var favoriteSections: [(title: String?, items: [Favorite])] {
+        let home = favorites.filter(\.isHome)
+        let rest = favorites.filter { !$0.isHome }
+        let grouped = Dictionary(grouping: rest.filter { $0.groupName != nil }) { $0.groupName! }
+        var sections: [(String?, [Favorite])] = home.isEmpty ? [] : [(nil, home)]
+        for name in grouped.keys.sorted(by: { $0.localizedCompare($1) == .orderedAscending }) {
+            sections.append((name, grouped[name]!))
+        }
+        let ungrouped = rest.filter { $0.groupName == nil }
+        if !ungrouped.isEmpty { sections.append((grouped.isEmpty ? nil : String(localized: "Ohne Gruppe"), ungrouped)) }
+        return sections
+    }
 
     private enum ImportKind { case favorites, gpx }
 
@@ -25,20 +41,38 @@ struct FavoritesView: View {
                 if favorites.isEmpty {
                     Text("Noch keine Favoriten gespeichert.").foregroundStyle(.secondary)
                 }
-                ForEach(favorites) { favorite in
-                    Button {
-                        model.navigateToFavorite(favorite)
-                        dismiss()
-                    } label: {
-                        Label(favorite.name, systemImage: favorite.isHome ? "house.fill" : "star.fill")
-                            .foregroundStyle(.primary)
+                ForEach(Array(favoriteSections.enumerated()), id: \.offset) { _, section in
+                    Section {
+                        ForEach(section.items) { favorite in
+                            Button {
+                                model.navigateToFavorite(favorite)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    FavoriteBadge(symbol: favorite.displaySymbol, colorHex: favorite.displayColorHex)
+                                    Text(favorite.name).foregroundStyle(.primary)
+                                }
+                            }
+                            .swipeActions(edge: .leading) {
+                                Button { editing = favorite } label: { Label("Bearbeiten", systemImage: "pencil") }
+                                    .tint(.blue)
+                            }
+                            .contextMenu {
+                                Button { editing = favorite } label: { Label("Bearbeiten", systemImage: "pencil") }
+                            }
+                        }
+                        .onDelete { offsets in
+                            offsets.map { section.items[$0].id }.forEach(FavoritesStore.remove)
+                            favorites = FavoritesStore.list()
+                        }
+                    } header: {
+                        if let title = section.title { Text(title) }
                     }
                 }
-                .onDelete { offsets in
-                    offsets.map { favorites[$0].id }.forEach(FavoritesStore.remove)
-                    favorites = FavoritesStore.list()
-                }
 
+                if settings.calendarTrips {
+                    CalendarTripsSection()
+                }
                 Section("Neuen Favoriten speichern") {
                     Button {
                         dismiss()
@@ -89,6 +123,9 @@ struct FavoritesView: View {
                     Button { exporting = true } label: { Label("Exportieren", systemImage: "square.and.arrow.up") }
                     Button { importKind = .favorites } label: { Label("Importieren", systemImage: "square.and.arrow.down") }
                 }
+            }
+            .sheet(item: $editing, onDismiss: { favorites = FavoritesStore.list() }) { favorite in
+                FavoriteEditSheet(favorite: favorite)
             }
             .navigationTitle("Favoriten & Routen")
             .navigationBarTitleDisplayMode(.inline)
@@ -147,12 +184,21 @@ struct FavoriteNameSheet: View {
     let pending: AppModel.PendingFavorite
     @State private var name = ""
     @State private var asHome = false
+    @State private var symbol = "star.fill"
+    @State private var colorHex = FavoriteStyle.colors[0]
+    @State private var group = ""
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name", text: $name)
-                Toggle("Als Zuhause festlegen", isOn: $asHome)
+                Section {
+                    HStack(spacing: 12) {
+                        FavoriteBadge(symbol: asHome && symbol == "star.fill" ? "house.fill" : symbol, colorHex: colorHex, size: 40)
+                        TextField("Name", text: $name)
+                    }
+                    Toggle("Als Zuhause festlegen", isOn: $asHome)
+                }
+                FavoriteStyleFields(symbol: $symbol, colorHex: $colorHex, group: $group)
             }
             .navigationTitle("Favorit speichern")
             .navigationBarTitleDisplayMode(.inline)
@@ -160,14 +206,16 @@ struct FavoriteNameSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Speichern") {
-                        model.confirmFavorite(name: name, point: pending.point, asHome: asHome)
+                        model.confirmFavorite(name: name, point: pending.point, asHome: asHome,
+                                              symbol: asHome && symbol == "star.fill" ? "house.fill" : symbol,
+                                              colorHex: colorHex, group: group)
                         dismiss()
                     }
                 }
             }
             .onAppear { name = pending.name }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
     }
 }
 

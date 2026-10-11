@@ -145,6 +145,22 @@
         }
       }
     },
+    "%@ l/100 km": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ l/100 km"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ l/100 km"
+          }
+        }
+      }
+    },
     "%@ um %@": {
       "localizations": {
         "de": {
@@ -641,6 +657,22 @@
         }
       }
     },
+    "Abschnitt %lld/%lld · %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abschnitt %lld/%lld · %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Section %lld/%lld · %@"
+          }
+        }
+      }
+    },
     "Abzweig": {
       "localizations": {
         "de": {
@@ -961,6 +993,38 @@
         }
       }
     },
+    "Ankommen um …": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankommen um …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrive by …"
+          }
+        }
+      }
+    },
+    "Ankunft": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunft"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival"
+          }
+        }
+      }
+    },
     "Ankunft %@": {
       "localizations": {
         "de": {
@@ -977,6 +1041,22 @@
         }
       }
     },
+    "Ankunft in %@ um %@ – noch %@, etwa %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunft in %@ um %@ – noch %@, etwa %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arriving at %@ at %@ – %@ to go, about %@."
+          }
+        }
+      }
+    },
     "Ankunft jetzt %@": {
       "localizations": {
         "de": {
@@ -989,6 +1069,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arrival now %@"
+          }
+        }
+      }
+    },
+    "Ankunftszeit": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunftszeit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrival time"
           }
         }
       }
@@ -1057,18 +1153,18 @@
         }
       }
     },
-    "Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap.": {
+    "Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap. Favoriten erscheinen mit ihrem Symbol und ihrer Farbe auf der Karte (Name ab mittlerem Zoom); Symbol, Farbe und Gruppe lassen sich beim Speichern und in der Favoritenliste (nach rechts wischen → Bearbeiten) ändern.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap."
+            "value": "Antippen zeigt Öffnungszeiten, Adresse, Telefon und Website aus OpenStreetMap. Favoriten erscheinen mit ihrem Symbol und ihrer Farbe auf der Karte (Name ab mittlerem Zoom); Symbol, Farbe und Gruppe lassen sich beim Speichern und in der Favoritenliste (nach rechts wischen → Bearbeiten) ändern."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tapping shows opening hours, address, phone and website from OpenStreetMap."
+            "value": "Tapping shows opening hours, address, phone and website from OpenStreetMap. Favorites appear on the map with their icon and color (name from medium zoom); icon, color and group can be changed when saving and in the favorites list (swipe right → Edit)."
           }
         }
       }
@@ -1329,6 +1425,22 @@
         }
       }
     },
+    "Aus dem Kalender": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus dem Kalender"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "From the calendar"
+          }
+        }
+      }
+    },
     "Ausfahrt": {
       "localizations": {
         "de": {
@@ -1553,6 +1665,22 @@
         }
       }
     },
+    "Bahnübergang": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bahnübergang"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Level crossing"
+          }
+        }
+      }
+    },
     "Bank": {
       "localizations": {
         "de": {
@@ -1613,6 +1741,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "DIY store"
+          }
+        }
+      }
+    },
+    "Bearbeiten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit"
           }
         }
       }
@@ -1841,6 +1985,22 @@
         }
       }
     },
+    "Bodenschwelle": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bodenschwelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speed bump"
+          }
+        }
+      }
+    },
     "Braucht Internet (Offline-Modus ist an).": {
       "localizations": {
         "de": {
@@ -1985,6 +2145,22 @@
         }
       }
     },
+    "Das ist schon vorbei — bei sofortiger Abfahrt Ankunft gegen %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ist schon vorbei — bei sofortiger Abfahrt Ankunft gegen %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That has already passed — leaving now, you'd arrive around %@."
+          }
+        }
+      }
+    },
     "Datei konnte nicht gelesen werden.": {
       "localizations": {
         "de": {
@@ -2077,6 +2253,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opacity"
+          }
+        }
+      }
+    },
+    "Dein Auto steht an der gemerkten Stelle, geparkt um %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Auto steht an der gemerkten Stelle, geparkt um %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your car is at the saved spot, parked at %@."
+          }
+        }
+      }
+    },
+    "Dein Auto steht in %@, geparkt um %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Auto steht in %@, geparkt um %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your car is at %@, parked at %@."
           }
         }
       }
@@ -2689,6 +2897,38 @@
         }
       }
     },
+    "Erinnerung um %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerung um %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder at %@"
+          }
+        }
+      }
+    },
+    "Erinnerung um %@ gestellt.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erinnerung um %@ gestellt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder set for %@."
+          }
+        }
+      }
+    },
     "Erneut versuchen": {
       "localizations": {
         "de": {
@@ -2733,6 +2973,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Enhanced"
+          }
+        }
+      }
+    },
+    "Es ist etwa %@ entfernt.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es ist etwa %@ entfernt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It is about %@ away."
+          }
+        }
+      }
+    },
+    "Es ist kein Parkplatz gemerkt.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es ist kein Parkplatz gemerkt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No parking spot is saved."
           }
         }
       }
@@ -2865,6 +3137,38 @@
         }
       }
     },
+    "Fahrzeit laut Route %@ — ohne aktuelle Verkehrslage, deshalb der Puffer.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fahrzeit laut Route %@ — ohne aktuelle Verkehrslage, deshalb der Puffer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Driving time according to the route %@ — without current traffic, hence the buffer."
+          }
+        }
+      }
+    },
+    "Farbe": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Farbe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color"
+          }
+        }
+      }
+    },
     "Farben": {
       "localizations": {
         "de": {
@@ -2929,6 +3233,22 @@
         }
       }
     },
+    "Favorit bearbeiten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorit bearbeiten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit favorite"
+          }
+        }
+      }
+    },
     "Favorit gespeichert.": {
       "localizations": {
         "de": {
@@ -2977,6 +3297,22 @@
         }
       }
     },
+    "Favoriten auf der Karte": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriten auf der Karte"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorites on the map"
+          }
+        }
+      }
+    },
     "Favoriten exportiert.": {
       "localizations": {
         "de": {
@@ -2989,6 +3325,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Favorites exported."
+          }
+        }
+      }
+    },
+    "Favoriten mit derselben Gruppe stehen in der Liste zusammen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favoriten mit derselben Gruppe stehen in der Liste zusammen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorites with the same group are listed together."
           }
         }
       }
@@ -3169,6 +3521,22 @@
         }
       }
     },
+    "Für %@ um %@ jetzt losfahren. Tippen startet die Navigation.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für %@ um %@ jetzt losfahren. Tippen startet die Navigation."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave now for %@ at %@. Tap to start navigation."
+          }
+        }
+      }
+    },
     "Für diese Fahrt wurde keine Strecke aufgezeichnet.": {
       "localizations": {
         "de": {
@@ -3345,6 +3713,54 @@
         }
       }
     },
+    "Gefahrenstelle": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gefahrenstelle"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazard"
+          }
+        }
+      }
+    },
+    "Gefahrenstellen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gefahrenstellen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hazards"
+          }
+        }
+      }
+    },
+    "Gefährliche Kreuzung": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gefährliche Kreuzung"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dangerous junction"
+          }
+        }
+      }
+    },
     "Gelb": {
       "localizations": {
         "de": {
@@ -3409,6 +3825,22 @@
         }
       }
     },
+    "Gerade läuft keine Navigation.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gerade läuft keine Navigation."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No navigation is running right now."
+          }
+        }
+      }
+    },
     "Geschenke": {
       "localizations": {
         "de": {
@@ -3453,6 +3885,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Closed · opens %@"
+          }
+        }
+      }
+    },
+    "Geschätzte Kosten je Route (Profil Auto) und im Fahrtenbuch: Strecke × Verbrauch × Literpreis. Mit Tankerkönig-Schlüssel (Suche & Orte → Spritpreise) wird der aktuelle Durchschnittspreis der Tankstellen in der Nähe genommen, sonst der eigene Literpreis.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geschätzte Kosten je Route (Profil Auto) und im Fahrtenbuch: Strecke × Verbrauch × Literpreis. Mit Tankerkönig-Schlüssel (Suche & Orte → Spritpreise) wird der aktuelle Durchschnittspreis der Tankstellen in der Nähe genommen, sonst der eigene Literpreis."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated cost per route (car profile) and in the trip log: distance × consumption × price per liter. With a Tankerkönig key (Search & places → Fuel prices) the current average price of nearby fuel stations is used, otherwise your own price per liter."
           }
         }
       }
@@ -3629,6 +4077,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Large text"
+          }
+        }
+      }
+    },
+    "Gruppe": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group"
+          }
+        }
+      }
+    },
+    "Gruppe (z. B. Arbeit, Familie)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe (z. B. Arbeit, Familie)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Group (e.g. work, family)"
           }
         }
       }
@@ -4177,6 +4657,22 @@
         }
       }
     },
+    "Kalender-Termine anzeigen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kalender-Termine anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show calendar appointments"
+          }
+        }
+      }
+    },
     "Karte": {
       "localizations": {
         "de": {
@@ -4465,6 +4961,22 @@
         }
       }
     },
+    "Keine Termine mit Ort in den nächsten 48 Stunden.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine Termine mit Ort in den nächsten 48 Stunden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No appointments with a location in the next 48 hours."
+          }
+        }
+      }
+    },
     "Keine weiteren Infos in OpenStreetMap eingetragen.": {
       "localizations": {
         "de": {
@@ -4509,6 +5021,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kilometers per week"
+          }
+        }
+      }
+    },
+    "Kinder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kinder"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Children"
           }
         }
       }
@@ -4897,6 +5425,38 @@
         }
       }
     },
+    "Literpreis": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Literpreis"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price per liter"
+          }
+        }
+      }
+    },
+    "Losfahren um": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Losfahren um"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave at"
+          }
+        }
+      }
+    },
     "LumoGo": {
       "localizations": {
         "de": {
@@ -4989,6 +5549,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Max. zoom: %lld"
+          }
+        }
+      }
+    },
+    "Mehr": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More"
           }
         }
       }
@@ -5905,6 +6481,22 @@
         }
       }
     },
+    "Ohne Gruppe": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Gruppe"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No group"
+          }
+        }
+      }
+    },
     "OpenStreetMap (klassisch)": {
       "localizations": {
         "de": {
@@ -5965,6 +6557,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Place"
+          }
+        }
+      }
+    },
+    "Ort des Termins nicht gefunden: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ort des Termins nicht gefunden: %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointment location not found: %@"
           }
         }
       }
@@ -6273,18 +6881,18 @@
         }
       }
     },
-    "Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.": {
+    "Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Gefahrenstellen: Bahnübergänge, Bodenschwellen, Gefahrzeichen (Wildwechsel, Steinschlag …) und Schulen/Kindergärten (werktags 6–18 Uhr) aus OpenStreetMap — gelbes Schild und Ansage vorher (nur online berechnete Auto-Routen). Scharfe Kurven: aus dem Routenverlauf erkannt, Ansage ab 50 km/h. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“."
+            "value": "Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Gefahrenstellen: Bahnübergänge, Bodenschwellen, Gefahrzeichen (Wildwechsel, Steinschlag …) und Schulen/Kindergärten (werktags 6–18 Uhr) aus OpenStreetMap — gelbes Schild und Ansage vorher (nur online berechnete Auto-Routen). Scharfe Kurven: aus dem Routenverlauf erkannt, Ansage ab 50 km/h. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Smooth arrow: glides between GPS points instead of jumping; the map follows evenly. Arrow at the bottom: more of the road ahead in view (like Google Maps). Street name without navigation: below the arrow while the map follows you (comes with snapping to the road, offline from the routing data). Recalculate: if you leave the route by more than 50 m, a new route is searched automatically. Junction view: before exits, forks, roundabouts and places with a lane choice, the map zooms in, lanes are shown large and a bar counts down to the turn. Turn arrow: white arrow on the road at the next maneuver. Motorway bar: on the motorway, the next exits and rest areas with distance, your exit highlighted (OpenStreetMap, only for car routes calculated online). Tunnel mode: if GPS drops out (tunnel), the arrow keeps moving along the route at the last speed until reception returns. Lock Screen: next turn, distance and arrival without unlocking — needs “Live Activities” in the iPhone settings → LumoGo. Navigation widget (replacement for picture-in-picture): long-press the Home Screen → “+” → LumoGo → “LumoGo Navigation” (small, medium, large); shows the turn, arrival and a schematic route, iOS refreshes it about every 10 seconds. Share arrival: button in the bottom navigation bar; if the arrival then shifts by more than 5 minutes, “Share again” appears."
+            "value": "Smooth arrow: glides between GPS points instead of jumping; the map follows evenly. Arrow at the bottom: more of the road ahead in view (like Google Maps). Street name without navigation: below the arrow while the map follows you (comes with snapping to the road, offline from the routing data). Recalculate: if you leave the route by more than 50 m, a new route is searched automatically. Junction view: before exits, forks, roundabouts and places with a lane choice, the map zooms in, lanes are shown large and a bar counts down to the turn. Turn arrow: white arrow on the road at the next maneuver. Motorway bar: on the motorway, the next exits and rest areas with distance, your exit highlighted (OpenStreetMap, only for car routes calculated online). Tunnel mode: if GPS drops out (tunnel), the arrow keeps moving along the route at the last speed until reception returns. Hazards: level crossings, speed bumps, warning signs (animals, falling rocks …) and schools/kindergartens (weekdays 6 am–6 pm) from OpenStreetMap — yellow sign and announcement ahead (only for car routes calculated online). Sharp bends: detected from the course of the route, announced from 50 km/h. Lock Screen: next turn, distance and arrival without unlocking — needs “Live Activities” in the iPhone settings → LumoGo. Navigation widget (replacement for picture-in-picture): long-press the Home Screen → “+” → LumoGo → “LumoGo Navigation” (small, medium, large); shows the turn, arrival and a schematic route, iOS refreshes it about every 10 seconds. Share arrival: button in the bottom navigation bar; if the arrival then shifts by more than 5 minutes, “Share again” appears."
           }
         }
       }
@@ -6449,6 +7057,22 @@
         }
       }
     },
+    "Puffer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Puffer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buffer"
+          }
+        }
+      }
+    },
     "Rad- und Fußwege mitladen": {
       "localizations": {
         "de": {
@@ -6461,6 +7085,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Include bike and foot paths"
+          }
+        }
+      }
+    },
+    "Radfahrer": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Radfahrer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cyclists"
           }
         }
       }
@@ -6721,6 +7361,38 @@
         }
       }
     },
+    "Route nach %@ (%@)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route nach %@ (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route to %@ (%@)"
+          }
+        }
+      }
+    },
+    "Route offline sichern": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route offline sichern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save route offline"
+          }
+        }
+      }
+    },
     "Route speichern": {
       "localizations": {
         "de": {
@@ -6749,6 +7421,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recalculating route."
+          }
+        }
+      }
+    },
+    "Route wird offline gesichert (≈ %@ Kacheln) — App dabei geöffnet lassen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route wird offline gesichert (≈ %@ Kacheln) — App dabei geöffnet lassen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving route offline (≈ %@ tiles) — keep the app open meanwhile."
           }
         }
       }
@@ -6785,18 +7473,18 @@
         }
       }
     },
-    "Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“).": {
+    "Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“). Route offline sichern (Routen-Panel → „Mehr“): Karte, Suche und Straßennetz in einem 4 km breiten Streifen entlang der Route laden — für Funklöcher und Ausland; erscheint unter Offline-Karten. Ankommen um: Losfahrzeit aus Wunsch-Ankunft, Fahrzeit und Puffer, mit Erinnerung (Tippen startet die Navigation). Kalender: Termine mit Ort der nächsten 48 Stunden in „Favoriten & Routen“ und „Ankommen um …“.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“)."
+            "value": "Routenvorschau: Anweisungsliste und Höhenprofil vor dem Start. Wetter: Vorhersage für die Durchfahrtszeit (Open-Meteo) — am Ziel und erster Regen unterwegs. GPX-Spur: Originalspur einer importierten Tour gestrichelt (Touren: Favoriten & Routen → „GPX-Tour importieren“). Route offline sichern (Routen-Panel → „Mehr“): Karte, Suche und Straßennetz in einem 4 km breiten Streifen entlang der Route laden — für Funklöcher und Ausland; erscheint unter Offline-Karten. Ankommen um: Losfahrzeit aus Wunsch-Ankunft, Fahrzeit und Puffer, mit Erinnerung (Tippen startet die Navigation). Kalender: Termine mit Ort der nächsten 48 Stunden in „Favoriten & Routen“ und „Ankommen um …“."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Route preview: list of directions and elevation profile before starting. Weather: forecast for the time you pass through (Open-Meteo) — at the destination and first rain on the way. GPX track: original track of an imported tour, dashed (tours: Favorites & routes → “Import GPX tour”)."
+            "value": "Route preview: list of directions and elevation profile before starting. Weather: forecast for the time you pass through (Open-Meteo) — at the destination and first rain on the way. GPX track: original track of an imported tour, dashed (tours: Favorites & routes → “Import GPX tour”). Save route offline (route panel → “More”): downloads map, search and road network in a 4 km wide strip along the route — for dead zones and abroad; appears under Offline maps. Arrive by: departure time from desired arrival, driving time and buffer, with a reminder (tapping it starts navigation). Calendar: appointments with a location in the next 48 hours in “Favorites & routes” and “Arrive by …”."
           }
         }
       }
@@ -6881,6 +7569,22 @@
         }
       }
     },
+    "Rutschgefahr": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rutschgefahr"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Slippery road"
+          }
+        }
+      }
+    },
     "Sa": {
       "localizations": {
         "de": {
@@ -6893,6 +7597,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sat"
+          }
+        }
+      }
+    },
+    "Sagt Ankunftszeit und Reststrecke der laufenden Navigation.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sagt Ankunftszeit und Reststrecke der laufenden Navigation."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tells the arrival time and remaining distance of the current navigation."
+          }
+        }
+      }
+    },
+    "Sagt, wo das Auto geparkt ist.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sagt, wo das Auto geparkt ist."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tells where your car is parked."
+          }
+        }
+      }
+    },
+    "Scharfe Kurve": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scharfe Kurve"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sharp bend"
+          }
+        }
+      }
+    },
+    "Scharfe Kurven ansagen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scharfe Kurven ansagen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Announce sharp bends"
           }
         }
       }
@@ -7393,6 +8161,70 @@
         }
       }
     },
+    "Spritkosten": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spritkosten"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel costs"
+          }
+        }
+      }
+    },
+    "Spritkosten (geschätzt)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spritkosten (geschätzt)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fuel costs (estimated)"
+          }
+        }
+      }
+    },
+    "Spritkosten anzeigen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spritkosten anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show fuel costs"
+          }
+        }
+      }
+    },
+    "Spritkosten gesamt": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spritkosten gesamt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total fuel costs"
+          }
+        }
+      }
+    },
     "Spritpreise": {
       "localizations": {
         "de": {
@@ -7617,6 +8449,22 @@
         }
       }
     },
+    "Startet die Fußnavigation zum geparkten Auto.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startet die Fußnavigation zum geparkten Auto."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starts walking navigation to your parked car."
+          }
+        }
+      }
+    },
     "Startet die Navigation zu einem gespeicherten Favoriten.": {
       "localizations": {
         "de": {
@@ -7645,6 +8493,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Statistics"
+          }
+        }
+      }
+    },
+    "Steinschlag": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steinschlag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Falling rocks"
           }
         }
       }
@@ -8049,6 +8913,22 @@
         }
       }
     },
+    "Symbol": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Symbol"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Icon"
+          }
+        }
+      }
+    },
     "Synagoge": {
       "localizations": {
         "de": {
@@ -8257,6 +9137,54 @@
         }
       }
     },
+    "Termin": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termin"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointment"
+          }
+        }
+      }
+    },
+    "Termine aus dem Kalender": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termine aus dem Kalender"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointments from the calendar"
+          }
+        }
+      }
+    },
+    "Termine mit Ort: Tippen setzt das Ziel und plant die Ankunft zum Terminbeginn.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Termine mit Ort: Tippen setzt das Ziel und plant die Ankunft zum Terminbeginn."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointments with a location: tapping sets the destination and plans the arrival for the start time."
+          }
+        }
+      }
+    },
     "Text & Links": {
       "localizations": {
         "de": {
@@ -8317,6 +9245,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tip: you can also save an address with the star next to a search result."
+          }
+        }
+      }
+    },
+    "Tippen auf die Mitteilung startet direkt die Navigation.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tippen auf die Mitteilung startet direkt die Navigation."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tapping the notification starts navigation right away."
           }
         }
       }
@@ -8577,6 +9521,22 @@
         }
       }
     },
+    "Verbrauch": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbrauch"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consumption"
+          }
+        }
+      }
+    },
     "Vergessen": {
       "localizations": {
         "de": {
@@ -8685,6 +9645,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preview"
+          }
+        }
+      }
+    },
+    "Wann komme ich an?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wann komme ich an?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When will I arrive?"
           }
         }
       }
@@ -8833,6 +9809,22 @@
         }
       }
     },
+    "Wildwechsel": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wildwechsel"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal crossing"
+          }
+        }
+      }
+    },
     "Wird geladen …": {
       "localizations": {
         "de": {
@@ -8845,6 +9837,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Loading …"
+          }
+        }
+      }
+    },
+    "Wo ist mein Auto?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wo ist mein Auto?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Where is my car?"
           }
         }
       }
@@ -8909,6 +9917,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shows fuel stations nearby — with prices if a Tankerkönig key is entered."
+          }
+        }
+      }
+    },
+    "Zeit zum Losfahren": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeit zum Losfahren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time to leave"
           }
         }
       }
@@ -9137,6 +10161,54 @@
         }
       }
     },
+    "Zum Auto": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Auto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "To my car"
+          }
+        }
+      }
+    },
+    "Zum Auto navigieren": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Auto navigieren"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigate to my car"
+          }
+        }
+      }
+    },
+    "Zur Losfahrzeit erinnern": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zur Losfahrzeit erinnern"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remind me when to leave"
+          }
+        }
+      }
+    },
     "Zurücksetzen": {
       "localizations": {
         "de": {
@@ -9197,6 +10269,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "just now"
+          }
+        }
+      }
+    },
+    "gesamt": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "gesamt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "total"
           }
         }
       }
@@ -9393,6 +10481,22 @@
         }
       }
     },
+    "unterwegs": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "unterwegs"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "on the road"
+          }
+        }
+      }
+    },
     "vor %lld Tagen": {
       "localizations": {
         "de": {
@@ -9505,6 +10609,22 @@
         }
       }
     },
+    "Ø Geschwindigkeit": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ø Geschwindigkeit"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average speed"
+          }
+        }
+      }
+    },
     "Übersicht (6–10)": {
       "localizations": {
         "de": {
@@ -9565,6 +10685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "“%@” will be used after navigation."
+          }
+        }
+      }
+    },
+    "„Ankommen um …“": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Ankommen um …“"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Arrive by …”"
           }
         }
       }
@@ -9665,6 +10801,22 @@
         }
       }
     },
+    "„Route offline sichern“": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Route offline sichern“"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Save route offline”"
+          }
+        }
+      }
+    },
     "„Tankstellen in der Nähe mit LumoGo“": {
       "localizations": {
         "de": {
@@ -9677,6 +10829,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "“Fuel stations nearby with LumoGo”"
+          }
+        }
+      }
+    },
+    "≈ %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "≈ %@"
           }
         }
       }

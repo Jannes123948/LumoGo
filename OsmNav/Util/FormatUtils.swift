@@ -47,6 +47,9 @@ enum FormatUtils {
         value.formatted(.number.precision(.fractionLength(digits)).grouping(.never).locale(AppLanguage.locale))
     }
 
+    /** „8,40 €“ bzw. „8.40 €“. */
+    static func euro(_ value: Double) -> String { decimal(value, digits: 2) + " €" }
+
     static func formatEta(_ remainingSeconds: Double) -> String {
         etaFormatter.string(from: Date().addingTimeInterval(remainingSeconds))
     }

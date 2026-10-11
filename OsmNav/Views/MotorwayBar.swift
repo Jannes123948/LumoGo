@@ -65,6 +65,35 @@ struct MotorwayRow: View {
     }
 }
 
+/** Gefahrenstelle voraus: Warnschild-Look (gelb, rot umrandetes Symbol) mit Entfernung. */
+struct HazardPill: View {
+    let hazard: HazardAhead
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: hazard.kind.symbol)
+                .font(.system(size: settings.largeHud ? 17 : 15, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 30, height: 30)
+                .background(Color.white, in: Circle())
+                .overlay(Circle().strokeBorder(Color(red: 0.8, green: 0.05, blue: 0.05), lineWidth: 3))
+            Text(hazard.kind.label)
+                .font(.system(size: settings.largeHud ? 18 : 16, weight: .bold))
+            Text(hazard.distanceText)
+                .font(.system(size: settings.largeHud ? 18 : 16, weight: .semibold))
+                .monospacedDigit()
+        }
+        .foregroundStyle(.black)
+        .padding(.leading, 6)
+        .padding(.trailing, 14)
+        .padding(.vertical, 5)
+        .background(Color(red: 1, green: 0.8, blue: 0.1), in: Capsule())
+        .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /** Hinweis im Tunnel-Modus: Position wird geschätzt. */
 struct DeadReckoningPill: View {
     let inTunnel: Bool

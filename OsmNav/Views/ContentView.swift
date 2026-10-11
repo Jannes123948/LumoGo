@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveSheet: String, Identifiable {
-    case settings, favorites, nearby, trips, offline, alongRoute, weather, parking
+    case settings, favorites, nearby, trips, offline, alongRoute, weather, parking, arrivalPlanner
     var id: String { rawValue }
 }
 
@@ -43,6 +43,10 @@ struct ContentView: View {
             VStack(spacing: 8) {
                 if model.navigationActive {
                     NavHudView()
+                    if let hazard = model.hazardAhead {
+                        HazardPill(hazard: hazard)
+                            .transition(.opacity)
+                    }
                     if let reckoning = model.deadReckoning {
                         DeadReckoningPill(inTunnel: reckoning.inTunnel)
                             .transition(.opacity)
@@ -151,6 +155,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: model.etaShiftedTo)
         .animation(.easeInOut(duration: 0.25), value: model.motorwayAhead.isEmpty)
         .animation(.easeInOut(duration: 0.2), value: model.deadReckoning)
+        .animation(.easeInOut(duration: 0.2), value: model.hazardAhead?.id)
         .animation(.easeInOut(duration: 0.2), value: model.parkedCar == nil)
         .animation(.easeInOut(duration: 0.2), value: freeRoadName)
         .onAppear {
@@ -162,6 +167,7 @@ struct ContentView: View {
             if phase == .active { model.checkSharedInbox() }
         }
         .onChange(of: settings.parkingMemory) { _ in model.parkingSettingChanged() }
+        .onChange(of: settings.favoritesOnMap) { _ in model.refreshFavoriteMarkers() }
         // Widget, Live-Aktivität (lumogo://…) und Siri-Kurzbefehle.
         .onOpenURL { model.handle($0) }
         .onChange(of: model.requestedSheet) { request in
@@ -179,6 +185,7 @@ struct ContentView: View {
             case .alongRoute: AlongRouteSheet()
             case .weather: WeatherSheet()
             case .parking: ParkingSheet()
+            case .arrivalPlanner: ArrivalPlannerSheet()
             }
         }
         .sheet(item: $model.poiSelection) { _ in

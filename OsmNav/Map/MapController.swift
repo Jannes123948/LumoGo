@@ -67,6 +67,8 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private static let arrowHeadSourceId = "maneuver-arrow-head"
     private static let arrowHeadLayerId = "maneuver-arrow-head-layer"
     private static let arrowHeadIcon = "maneuver-head"
+    private static let favoritesSourceId = "favorites"
+    private static let favoritesLayerId = "favorites-layer"
     private static let parkedSourceId = "parked-car"
     private static let parkedLayerId = "parked-car-layer"
     private static let parkedIcon = "parked-car-icon"
@@ -124,6 +126,9 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private var tourTrack: [LatLon] = []
     private var maneuverArrow: [LatLon] = []
     private var parkedCar: LatLon?
+    private var favorites: [Favorite] = []
+    /** Tipp auf einen Favoriten-Pin (ID). */
+    var onFavoriteTap: ((String) -> Void)?
 
     func makeMapView(engine: MapEngine, dark: Bool) -> MLNMapView {
         Self.configureNetwork()
@@ -240,6 +245,16 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         guard gesture.state == .ended, let mapView else { return }
         let location = gesture.location(in: mapView)
         let coordinate = mapView.convert(location, toCoordinateFrom: mapView)
+
+        // Favoriten-Pin getroffen?
+        if !favorites.isEmpty {
+            let rect = CGRect(x: location.x - 20, y: location.y - 20, width: 40, height: 40)
+            if let id = mapView.visibleFeatures(in: rect, styleLayerIdentifiers: [Self.favoritesLayerId])
+                .compactMap({ $0.attribute(forKey: "id") as? String }).first {
+                onFavoriteTap?(id)
+                return
+            }
+        }
 
         let poiLayers = Set((style?.layers ?? []).compactMap { layer -> String? in
             guard let vector = layer as? MLNVectorStyleLayer,
@@ -389,6 +404,24 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         destLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
         destLayer.iconAnchor = NSExpression(forKeyPath: "anchor")
         style.addLayer(destLayer)
+
+        // Favoriten: runde Plakette mit eigenem Symbol und eigener Farbe, Name ab Zoom 13.
+        let favoritesSource = MLNShapeSource(identifier: Self.favoritesSourceId, shape: nil, options: nil)
+        style.addSource(favoritesSource)
+        let favoritesLayer = MLNSymbolStyleLayer(identifier: Self.favoritesLayerId, source: favoritesSource)
+        favoritesLayer.iconImageName = NSExpression(forKeyPath: "icon")
+        favoritesLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+        favoritesLayer.text = NSExpression(format: "TERNARY($zoomLevel >= 13, name, '')")
+        // Schrift von OpenFreeMap (auch in den Raster-Stilen hinterlegt, siehe „glyphs“).
+        favoritesLayer.textFontNames = NSExpression(forConstantValue: ["Noto Sans Regular"])
+        favoritesLayer.textFontSize = NSExpression(forConstantValue: 12)
+        favoritesLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0, dy: 1.6)))
+        favoritesLayer.textAnchor = NSExpression(forConstantValue: "top")
+        favoritesLayer.textColor = NSExpression(forConstantValue: UIColor(white: 0.15, alpha: 1))
+        favoritesLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+        favoritesLayer.textHaloWidth = NSExpression(forConstantValue: 1.5)
+        favoritesLayer.textOptional = NSExpression(forConstantValue: true)
+        style.addLayer(favoritesLayer)
 
         // Geparktes Auto.
         style.setImage(Self.renderParkedCar(), forName: Self.parkedIcon)
@@ -624,6 +657,23 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         headSource.shape = head
     }
 
+    /** Favoriten-Pins; leer = ausblenden. */
+    func setFavorites(_ list: [Favorite]) {
+        favorites = list
+        guard let style, let source = style.source(withIdentifier: Self.favoritesSourceId) as? MLNShapeSource else { return }
+        let features: [MLNPointFeature] = list.map { favorite in
+            let icon = "fav|\(favorite.displaySymbol)|\(favorite.displayColorHex)"
+            if style.image(forName: icon) == nil {
+                style.setImage(Self.renderFavorite(symbol: favorite.displaySymbol, hex: UInt32(favorite.displayColorHex)), forName: icon)
+            }
+            let feature = MLNPointFeature()
+            feature.coordinate = favorite.point.coordinate
+            feature.attributes = ["icon": icon, "name": favorite.name, "id": favorite.id]
+            return feature
+        }
+        source.shape = MLNShapeCollectionFeature(shapes: features)
+    }
+
     /** Symbol des geparkten Autos; nil = ausblenden. */
     func setParkedCar(_ point: LatLon?) {
         parkedCar = point
@@ -656,6 +706,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         setRoutes(routes, selected: selectedRouteIndex)
         setManeuverArrow(maneuverArrow)
         setParkedCar(parkedCar)
+        setFavorites(favorites)
         if let (position, heading) = drawnPuck ?? puck { drawPuck(position, heading: heading) }
     }
 
@@ -734,6 +785,25 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
             UIColor.white.setFill()
             path.fill()
             _ = ctx
+        }
+    }
+
+    /** Favorit: Kreis in der Favoriten-Farbe mit weißem Rand und weißem Symbol. */
+    private static func renderFavorite(symbol: String, hex: UInt32) -> UIImage {
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)
+        let image = (UIImage(systemName: symbol, withConfiguration: config) ?? UIImage(systemName: "star.fill", withConfiguration: config)!)
+            .withTintColor(.white, renderingMode: .alwaysOriginal)
+        let size: CGFloat = 32
+        return UIGraphicsImageRenderer(size: CGSize(width: size, height: size)).image { ctx in
+            let cg = ctx.cgContext
+            cg.setShadow(offset: CGSize(width: 0, height: 1), blur: 3, color: UIColor.black.withAlphaComponent(0.35).cgColor)
+            UIColor.white.setFill()
+            cg.fillEllipse(in: CGRect(x: 2, y: 2, width: size - 4, height: size - 4))
+            cg.setShadow(offset: .zero, blur: 0, color: nil)
+            UIColor(hex: hex).setFill()
+            cg.fillEllipse(in: CGRect(x: 4.5, y: 4.5, width: size - 9, height: size - 9))
+            let s = image.size
+            image.draw(in: CGRect(x: (size - s.width) / 2, y: (size - s.height) / 2, width: s.width, height: s.height))
         }
     }
 

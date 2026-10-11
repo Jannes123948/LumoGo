@@ -26,7 +26,8 @@ struct TripDetailView: View {
                 if trip.drivenMeters != nil {
                     row(String(localized: "Geplant"), FormatUtils.formatDistance(trip.distanceMeters))
                 }
-                if let avg = trip.averageKmh { row("Ø Geschwindigkeit", "\(Int(avg.rounded())) km/h") }
+                if let avg = trip.averageKmh { row(String(localized: "Ø Geschwindigkeit"), "\(Int(avg.rounded())) km/h") }
+                if let cost = trip.fuelCost { row(String(localized: "Spritkosten (geschätzt)"), FormatUtils.euro(cost)) }
                 if let max = trip.maxKmh, max > 0 { row(String(localized: "Höchstgeschwindigkeit"), String(localized: "\(Int(max.rounded())) km/h")) }
             }
             Section {

@@ -1,3 +1,5 @@
 /* Deutsche Texte aus der Info.plist (Systemdialoge). */
 "CFBundleDisplayName" = "LumoGo";
 "NSLocationWhenInUseUsageDescription" = "LumoGo braucht deinen Standort, um ihn auf der Karte anzuzeigen und dich zum Ziel zu navigieren.";
+"NSCalendarsUsageDescription" = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";
+"NSCalendarsFullAccessUsageDescription" = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";

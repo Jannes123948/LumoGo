@@ -81,6 +81,38 @@
         }
       }
     },
+    "Anzeigen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anzeigen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show"
+          }
+        }
+      }
+    },
+    "Bautzner Straße 12, Dresden": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bautzner Straße 12, Dresden"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bautzner Straße 12, Dresden"
+          }
+        }
+      }
+    },
     "Da": {
       "localizations": {
         "de": {
@@ -129,6 +161,22 @@
         }
       }
     },
+    "Hinführen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hinführen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Walk there"
+          }
+        }
+      }
+    },
     "Karte": {
       "localizations": {
         "de": {
@@ -141,6 +189,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Map"
+          }
+        }
+      }
+    },
+    "Kein Parkplatz gemerkt": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein Parkplatz gemerkt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No parking spot saved"
           }
         }
       }
@@ -221,6 +285,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Open LumoGo to continue."
+          }
+        }
+      }
+    },
+    "Mein Auto": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mein Auto"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My car"
           }
         }
       }
@@ -353,6 +433,22 @@
         }
       }
     },
+    "Wird bei Ankunft mit dem Auto gemerkt.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird bei Ankunft mit dem Auto gemerkt."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved when you arrive by car."
+          }
+        }
+      }
+    },
     "Zeigt während der Navigation das nächste Abbiegen und die Route — auch wenn die App nicht offen ist.": {
       "localizations": {
         "de": {
@@ -369,6 +465,22 @@
         }
       }
     },
+    "Zeigt, wo dein Auto geparkt ist — mit einem Tipp zu Fuß hinführen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt, wo dein Auto geparkt ist — mit einem Tipp zu Fuß hinführen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows where your car is parked — walk there with one tap."
+          }
+        }
+      }
+    },
     "Zuhause": {
       "localizations": {
         "de": {
@@ -381,6 +493,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Home"
+          }
+        }
+      }
+    },
+    "seit ": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "seit "
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "for "
           }
         }
       }

@@ -26,6 +26,9 @@ struct RoutePanel: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(FormatUtils.formatDuration(route.duration)).font(.headline)
                                     Text(FormatUtils.formatDistance(route.distance)).font(.caption)
+                                    if let cost = model.fuelCost(meters: route.distance) {
+                                        Text("≈ \(FormatUtils.euro(cost))").font(.caption2)
+                                    }
                                 }
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -37,8 +40,16 @@ struct RoutePanel: View {
                     }
                 }
             } else if let route = model.lastRoute {
-                Text("\(FormatUtils.formatDuration(route.duration)) · \(FormatUtils.formatDistance(route.distance))")
-                    .font(.headline)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(FormatUtils.formatDuration(route.duration)) · \(FormatUtils.formatDistance(route.distance))")
+                        .font(.headline)
+                    if let cost = model.fuelCost(meters: route.distance) {
+                        Spacer(minLength: 6)
+                        Label("≈ \(FormatUtils.euro(cost))", systemImage: "fuelpump")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             if let tour = model.activeTour {
@@ -59,11 +70,26 @@ struct RoutePanel: View {
                     } label: {
                         Label("Auf der Route", systemImage: "magnifyingglass").frame(maxWidth: .infinity)
                     }
-                    Button {
-                        routeName = model.activeTour?.name ?? (model.waypoints.last?.label.components(separatedBy: ",").first ?? "")
-                        savingRoute = true
+                    // Weitere Aktionen im Menü — das Panel ist ohnehin schon hoch (siehe Anweisungs-Blatt).
+                    Menu {
+                        Button {
+                            routeName = model.activeTour?.name ?? (model.waypoints.last?.label.components(separatedBy: ",").first ?? "")
+                            savingRoute = true
+                        } label: {
+                            Label("Route speichern", systemImage: "bookmark")
+                        }
+                        if settings.arrivalPlanner {
+                            Button { model.openArrivalPlanner() } label: {
+                                Label("Ankommen um …", systemImage: "alarm")
+                            }
+                        }
+                        if settings.routeOffline {
+                            Button { model.saveRouteOffline() } label: {
+                                Label("Route offline sichern", systemImage: "arrow.down.circle")
+                            }
+                        }
                     } label: {
-                        Label("Speichern", systemImage: "bookmark").frame(maxWidth: .infinity)
+                        Label("Mehr", systemImage: "ellipsis.circle").frame(maxWidth: .infinity)
                     }
                 }
                 .buttonStyle(.bordered)

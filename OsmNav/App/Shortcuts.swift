@@ -61,6 +61,44 @@ struct OpenSearchIntent: AppIntent {
     }
 }
 
+/** „Wann komme ich an?“ — Siri antwortet mit Ankunftszeit und Reststrecke, ohne die App zu öffnen. */
+struct NavigationStatusIntent: AppIntent {
+    static var title: LocalizedStringResource = "Wann komme ich an?"
+    static var description = IntentDescription("Sagt Ankunftszeit und Reststrecke der laufenden Navigation.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let text = AppModel.current?.navigationStatusSentence() ?? String(localized: "Gerade läuft keine Navigation.")
+        return .result(dialog: "\(text)")
+    }
+}
+
+/** „Wo ist mein Auto?“ — Adresse und Parkzeit (und Entfernung, wenn die App den Standort kennt). */
+struct WhereIsMyCarIntent: AppIntent {
+    static var title: LocalizedStringResource = "Wo ist mein Auto?"
+    static var description = IntentDescription("Sagt, wo das Auto geparkt ist.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        .result(dialog: "\(ParkingStore.spokenLocation(from: AppModel.current?.currentPosition))")
+    }
+}
+
+/** „Bring mich zum Auto“ — öffnet die App und startet die Fußnavigation zum Parkplatz. */
+struct WalkToCarIntent: AppIntent {
+    static var title: LocalizedStringResource = "Zum Auto navigieren"
+    static var description = IntentDescription("Startet die Fußnavigation zum geparkten Auto.")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        AppModel.current?.handle(.walkToCar)
+        return .result()
+    }
+}
+
 /** Ein Favorit als Auswahl für Siri/Kurzbefehle (gelesen aus [FavoritesStore]). */
 struct FavoriteEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Favorit"
@@ -156,6 +194,39 @@ struct LumoGoShortcuts: AppShortcutsProvider {
             phrases: ["Suche in \(.applicationName)", "Suche mit \(.applicationName)", "\(.applicationName) Suche", "\(.applicationName) suchen"],
             shortTitle: "Suchen",
             systemImageName: "magnifyingglass"
+        )
+        AppShortcut(
+            intent: NavigationStatusIntent(),
+            phrases: [
+                "Wann komme ich mit \(.applicationName) an",
+                "\(.applicationName) Ankunftszeit",
+                "Wie lange noch mit \(.applicationName)",
+                "Wie weit ist es noch mit \(.applicationName)",
+                "\(.applicationName) wie lange noch"
+            ],
+            shortTitle: "Ankunftszeit",
+            systemImageName: "clock.fill"
+        )
+        AppShortcut(
+            intent: WhereIsMyCarIntent(),
+            phrases: [
+                "Wo ist mein Auto mit \(.applicationName)",
+                "\(.applicationName) wo ist mein Auto",
+                "Wo habe ich mit \(.applicationName) geparkt",
+                "\(.applicationName) mein Auto"
+            ],
+            shortTitle: "Mein Auto",
+            systemImageName: "car.fill"
+        )
+        AppShortcut(
+            intent: WalkToCarIntent(),
+            phrases: [
+                "Bring mich mit \(.applicationName) zum Auto",
+                "\(.applicationName) zum Auto",
+                "Zu meinem Auto mit \(.applicationName)"
+            ],
+            shortTitle: "Zum Auto",
+            systemImageName: "figure.walk"
         )
     }
 }

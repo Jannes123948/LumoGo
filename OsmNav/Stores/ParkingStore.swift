@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import WidgetKit
 
 /** Wo das Auto steht („Wo hab ich geparkt?“). */
 struct ParkedCar: Codable, Equatable {
@@ -29,11 +30,33 @@ enum ParkingStore {
     static func save(_ car: ParkedCar) {
         guard let data = try? JSONEncoder().encode(car) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        publish(car)
     }
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)
         cancelReminder()
+        publish(nil)
+    }
+
+    /** Antwort für Siri „Wo ist mein Auto?“ — [position] = eigener Standort (falls bekannt). */
+    static func spokenLocation(from position: LatLon?) -> String {
+        guard let car = load() else { return String(localized: "Es ist kein Parkplatz gemerkt.") }
+        let time = car.date.formatted(date: Calendar.current.isDateInToday(car.date) ? .omitted : .abbreviated, time: .shortened)
+        var text = car.address.map { String(localized: "Dein Auto steht in \($0), geparkt um \(time).") }
+            ?? String(localized: "Dein Auto steht an der gemerkten Stelle, geparkt um \(time).")
+        if let position {
+            text += " " + String(localized: "Es ist etwa \(FormatUtils.formatDistance(GeoUtils.distanceMeters(position, car.point))) entfernt.")
+        }
+        if let note = car.note { text += " " + note }
+        return text
+    }
+
+    /** Für das Widget „Mein Auto“ (App Group). */
+    static func publish(_ car: ParkedCar?) {
+        ParkedCarShared.save(car.map { ParkedCarSnapshot(latitude: $0.lat, longitude: $0.lon, date: $0.date,
+                                                         address: $0.address, note: $0.note, reminder: $0.reminder) })
+        WidgetCenter.shared.reloadTimelines(ofKind: ParkedCarShared.widgetKind)
     }
 
     /** Erinnerung zum Zeitpunkt [date]; false = Mitteilungen nicht erlaubt. */

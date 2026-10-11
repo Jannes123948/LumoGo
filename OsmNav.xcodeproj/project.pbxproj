@@ -315,7 +315,7 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -330,7 +330,7 @@
 				);
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.0.8;
+				MARKETING_VERSION = 0.0.9;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -351,7 +351,7 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -360,7 +360,7 @@
 				GCC_NO_COMMON_BLOCKS = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.0.8;
+				MARKETING_VERSION = 0.0.9;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -382,6 +382,8 @@
 				INFOPLIST_FILE = "OsmNav-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = LumoGo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LumoGo braucht deinen Standort, um ihn auf der Karte anzuzeigen und dich zum Ziel zu navigieren.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -416,6 +418,8 @@
 				INFOPLIST_FILE = "OsmNav-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = LumoGo;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "LumoGo zeigt Termine mit Ort als Ziel an und plant, wann du losfahren musst.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "LumoGo braucht deinen Standort, um ihn auf der Karte anzuzeigen und dich zum Ziel zu navigieren.";
 				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

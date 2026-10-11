@@ -80,7 +80,7 @@ def entry(key, english):
 
 LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 GERMAN = re.compile(r'[äöüßÄÖÜ]|\b(der|die|das|und|nicht|ein|eine|auf|mit|für|zu|im|von|bei|aus|wird|keine|Kein|Bitte)\b|^[A-ZÄÖÜ][a-zäöüß]{2,}( [a-zäöüßA-Z]|$)')
-CODE_CONTEXT = re.compile(r'(forKey:|systemImage:|systemName:|symbol:|URL\(string:|identifier:|forResource:|withIdentifier:|tags\[|case |hasPrefix\(|hasSuffix\(|contains\(|range\(of:|NSSelectorFromString\(|dateFormat = |Locale\(identifier:|kind:|suiteName:|forHTTPHeaderField:|forName:|appendingPathComponent\(|replacingOccurrences\(of:|tag\(|verbatim:|String\(localized:)\s*$')
+CODE_CONTEXT = re.compile(r'(forKey:|systemImage:|systemName:|symbol:|URL\(string:|identifier:|forResource:|withIdentifier:|tags\[|case |hasPrefix\(|hasSuffix\(|contains\(|range\(of:|NSSelectorFromString\(|dateFormat = |Locale\(identifier:|kind:|suiteName:|forHTTPHeaderField:|forName:|forConstantValue: \[?|appendingPathComponent\(|replacingOccurrences\(of:|tag\(|verbatim:|String\(localized:)\s*$')
 # Bewusst deutsch (eigene englische Grammatik bzw. Siri-Sätze in AppShortcuts.strings).
 SKIP_FILES = ('InstructionFormatter.swift', 'AnnouncementPlanner.swift', 'EnglishInstructions.swift', 'Shortcuts.swift', 'GPX.swift', 'Tools/')
 

@@ -35,3 +35,15 @@
 "Suche mit ${applicationName}" = "Search with ${applicationName}";
 "${applicationName} Suche" = "${applicationName} search";
 "${applicationName} suchen" = "${applicationName} find a place";
+"Wann komme ich mit ${applicationName} an" = "When will I arrive with ${applicationName}";
+"${applicationName} Ankunftszeit" = "${applicationName} arrival time";
+"Wie lange noch mit ${applicationName}" = "How much longer with ${applicationName}";
+"Wie weit ist es noch mit ${applicationName}" = "How far is it with ${applicationName}";
+"${applicationName} wie lange noch" = "${applicationName} how long";
+"Wo ist mein Auto mit ${applicationName}" = "Where is my car with ${applicationName}";
+"${applicationName} wo ist mein Auto" = "${applicationName} where is my car";
+"Wo habe ich mit ${applicationName} geparkt" = "Where did I park with ${applicationName}";
+"${applicationName} mein Auto" = "${applicationName} my car";
+"Bring mich mit ${applicationName} zum Auto" = "Take me to my car with ${applicationName}";
+"${applicationName} zum Auto" = "${applicationName} walk to my car";
+"Zu meinem Auto mit ${applicationName}" = "Walk to my car with ${applicationName}";

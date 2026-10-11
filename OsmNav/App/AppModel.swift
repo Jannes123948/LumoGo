@@ -109,11 +109,22 @@ final class AppModel: ObservableObject {
     /** Geteilte Ankunftszeit hat sich um > 5 min verschoben → Knopf „Neue Ankunftszeit teilen“. */
     @Published private(set) var etaShiftedTo: String?
 
+    /** Literpreis für die Spritkosten: Durchschnitt der Tankstellen am Start (Tankerkönig) oder eigener Preis. */
+    @Published private(set) var fuelPrice: (price: Double, live: Bool)?
+    private var fuelPriceFetchedAt = Date.distantPast
+    private var fuelPriceTask: Task<Void, Never>?
+
     // Kreuzungsansicht + Abbiegepfeil
     @Published private(set) var junction: JunctionState?
     /** Laufende Kreuzungsansicht: Manöver + Startentfernung (bleibt beim Abbremsen bestehen). */
     private var junctionSticky: (index: Int, trigger: Double)?
     private var arrowManeuverIndex: Int?
+
+    // Gefahrenstellen
+    @Published private(set) var hazardAhead: HazardAhead?
+    private var routeHazards: [HazardOnRoute] = []
+    private var curveHazards: [HazardOnRoute] = []
+    private var announcedHazards = Set<String>()
 
     // Autobahn-Leiste
     @Published private(set) var motorwayAhead: [MotorwayAheadItem] = []
@@ -188,8 +199,15 @@ final class AppModel: ObservableObject {
         location.onHeading = { [weak self] heading in
             Task { @MainActor in self?.onCompassHeading(heading) }
         }
+        map.onFavoriteTap = { [weak self] id in self?.onFavoriteTap(id) }
+        NotificationCenter.default.addObserver(forName: FavoritesStore.changed, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.refreshFavoriteMarkers() }
+        }
+        refreshFavoriteMarkers()
         parkedCar = ParkingStore.load()
         refreshParkedCarMarker()
+        // Widget „Mein Auto“ mit dem gespeicherten Stand versorgen (auch nach einem Update).
+        ParkingStore.publish(parkedCar)
     }
 
     func start() {
@@ -563,8 +581,8 @@ final class AppModel: ObservableObject {
 
     // MARK: - Route
 
-    /** [startNavigationAfter] = gleich losnavigieren (Widget/Siri „Nach Hause“). */
-    func calculateRoute(startNavigationAfter: Bool = false) {
+    /** [startNavigationAfter] = gleich losnavigieren (Widget/Siri „Nach Hause“); [afterSuccess] = danach ausführen. */
+    func calculateRoute(startNavigationAfter: Bool = false, afterSuccess: (() -> Void)? = nil) {
         guard !waypoints.isEmpty else {
             showToast(String(localized: "Bitte zuerst ein Ziel wählen."))
             return
@@ -588,6 +606,7 @@ final class AppModel: ObservableObject {
                 fitRouteInView(routeOptions[0])
                 if result.usedOfflineRouting { showToast(String(localized: "Offline-Route berechnet.")) }
                 if startNavigationAfter { startNavigation() }
+                afterSuccess?()
             } catch let error as OfflineRoutingError {
                 restoreWalkProfile()
                 alertMessage = String(localized: "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)")
@@ -609,6 +628,105 @@ final class AppModel: ObservableObject {
         instructions = RouteProgressTracker.previewInstructions(route)
         updateElevationProfile(route)
         updateRouteWeather(route)
+        updateFuelPrice()
+    }
+
+    // MARK: - Route offline sichern
+
+    /**
+     * Karte, Suchdaten und Straßennetz in einem 4 km breiten Korridor entlang der Route laden — damit
+     * Navigation, Neuberechnung und Suche auch in Funklöchern gehen. Ein Paket in „Offline-Karten“.
+     */
+    func saveRouteOffline() {
+        guard let route = lastRoute else { return }
+        let corridor = RouteCorridor.chunks(route.geometry)
+        guard !corridor.isEmpty else { return }
+        let destination = waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? String(localized: "Ziel")
+        let date = Date().formatted(date: .abbreviated, time: .omitted)
+        let dark = UITraitCollection.current.userInterfaceStyle == .dark
+        OfflineMapsManager.shared.downloadCorridor(name: String(localized: "Route nach \(destination) (\(date))"), corridor: corridor,
+                                                   styleURL: dark ? MapController.darkStyleURL : MapController.lightStyleURL)
+        let tiles = RouteCorridor.tileCount(corridor, minZoom: 6, maxZoom: 14)
+        showToast(String(localized: "Route wird offline gesichert (≈ \(tiles.formatted()) Kacheln) — App dabei geöffnet lassen."))
+    }
+
+    // MARK: - Ankommen um …
+
+    /** Vorgabe für das Blatt „Ankommen um …“ (z.B. Terminbeginn); nil = jetzt + Fahrzeit. */
+    @Published var plannedArrival: Date?
+
+    func openArrivalPlanner() {
+        guard lastRoute != nil else { return }
+        requestedSheet = .some(.arrivalPlanner)
+    }
+
+    /** Termin aus dem Kalender: Ort als Ziel, Route berechnen, dann „Ankommen um“ mit Terminbeginn öffnen. */
+    func planTrip(_ trip: CalendarTrip) {
+        requestedSheet = .some(nil)
+        Task {
+            var point = trip.point
+            if point == nil {
+                point = try? await NominatimClient.search(trip.location, near: currentPosition).first?.point
+            }
+            guard let point else {
+                showToast(String(localized: "Ort des Termins nicht gefunden: \(trip.location)"))
+                return
+            }
+            if navigationActive { stopNavigation() }
+            clearSearch()
+            waypoints = []
+            addDestination(point, label: "\(trip.title), \(trip.location)")
+            map.ease(center: point, zoom: 14)
+            plannedArrival = trip.start
+            calculateRoute(afterSuccess: { [weak self] in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    self?.openArrivalPlanner()
+                }
+            })
+        }
+    }
+
+    /** Losfahr-Erinnerung für die aktuelle Route. */
+    func scheduleDeparture(arrival: Date) {
+        guard let route = lastRoute, let destination = waypoints.last else { return }
+        let departure = DeparturePlanner.departure(arrival: arrival, durationSeconds: route.duration, bufferMinutes: settings.departureBuffer)
+        let name = destination.label.components(separatedBy: ",").first ?? destination.label
+        Task {
+            if await DeparturePlanner.scheduleReminder(departure: departure, arrival: arrival, destination: name, point: destination.point) {
+                showToast(String(localized: "Erinnerung um \(departure.formatted(date: .omitted, time: .shortened)) gestellt."))
+            } else {
+                showToast(String(localized: "Mitteilungen sind für LumoGo aus — in den iPhone-Einstellungen erlauben."))
+            }
+        }
+    }
+
+    // MARK: - Spritkosten
+
+    /** Geschätzte Kosten für [meters] Fahrstrecke; nil = aus, kein Auto-Profil oder kein Preis. */
+    func fuelCost(meters: Double) -> Double? {
+        guard settings.fuelCostEnabled, settings.routingProfile == .car else { return nil }
+        let price = fuelPrice?.price ?? settings.fuelPriceManual
+        return meters / 1000 * settings.fuelConsumption / 100 * price
+    }
+
+    /**
+     * Mit Tankerkönig-Schlüssel: mittlerer Preis der offenen Tankstellen im Umkreis von 5 km (gewählte
+     * Sorte), höchstens alle 30 Minuten neu. Ohne Schlüssel bzw. bei Fehlern: eigener Preis.
+     */
+    private func updateFuelPrice() {
+        let key = settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces)
+        guard settings.fuelCostEnabled, !key.isEmpty, key != TankerkoenigClient.demoKey,
+              Date().timeIntervalSince(fuelPriceFetchedAt) > 30 * 60, let center = currentPosition else { return }
+        fuelPriceTask?.cancel()
+        fuelPriceTask = Task {
+            guard let stations = try? await TankerkoenigClient.stations(near: center, radiusKm: 5, fuel: settings.fuelType,
+                                                                        sortByPrice: false, apiKey: key) else { return }
+            let prices = stations.compactMap(\.price).filter { $0 > 0.5 && $0 < 4 }
+            guard !prices.isEmpty, !Task.isCancelled else { return }
+            fuelPrice = (prices.reduce(0, +) / Double(prices.count), true)
+            fuelPriceFetchedAt = Date()
+        }
     }
 
     /**
@@ -826,6 +944,7 @@ final class AppModel: ObservableObject {
             trip.hasTrack = true
             TripTrackStore.save(tripId: trip.id, points: trackPoints)
         }
+        trip.fuelCost = fuelCost(meters: trip.drivenMeters ?? route.distance)
         TripHistoryStore.add(trip)
     }
 
@@ -974,13 +1093,17 @@ final class AppModel: ObservableObject {
         speedLimit = nil
         motorwayPois = []
         restAreaPlaces = []
+        routeHazards = []
+        updateCurveHazards(route)
         guard !route.nodeLegs.isEmpty else { return }
         let routeId = route.id
+        let includeHazards = settings.hazardWarnings
         speedLimitTask = Task {
-            await SpeedLimitMap.load(nodeLegs: route.nodeLegs, geometry: route.geometry) { [weak self] segments, junctions in
+            await SpeedLimitMap.load(nodeLegs: route.nodeLegs, geometry: route.geometry, includeHazards: includeHazards) { [weak self] segments, junctions, hazards in
                 guard let self, self.navigationActive, self.lastRoute?.id == routeId else { return }
-                self.speedLimits.replace(segments, junctions: junctions)
+                self.speedLimits.replace(segments, junctions: junctions, hazards: hazards)
                 self.updateMotorwayPois(route)
+                self.routeHazards = HazardDetector.project(hazards, line: route.geometry, cumulative: self.cumulativeDistances(route))
             }
         }
     }
@@ -1011,7 +1134,45 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /** Scharfe Kurven aus der Routenlinie (geht auch offline). */
+    private func updateCurveHazards(_ route: OsrmRoute) {
+        guard settings.curveWarnings, let tracker else {
+            curveHazards = []
+            return
+        }
+        let maneuvers = (1..<max(tracker.stepCount, 1)).map { tracker.maneuverAlong($0) }
+        curveHazards = HazardDetector.curves(line: route.geometry, cumulative: cumulativeDistances(route), maneuverAlongs: maneuvers)
+    }
+
+    /**
+     * Nächste Gefahrenstelle voraus: Anzeige ab 400 m, Ansage einmal je Stelle ≈ 8 s vorher (mind. 150 m).
+     * Kurven nur ab 50 km/h (in der Stadt sind enge Kurven normal), Schulen nur werktags tagsüber.
+     */
+    private func updateHazards(_ current: LatLon, _ tracker: RouteProgressTracker, speedMps: Double) {
+        guard settings.hazardWarnings || settings.curveWarnings else {
+            if hazardAhead != nil { hazardAhead = nil }
+            return
+        }
+        let traveled = tracker.traveled(current)
+        let candidates = (settings.hazardWarnings ? routeHazards : []) + (settings.curveWarnings && speedMps >= 13.9 ? curveHazards : [])
+        let next = candidates
+            .filter { $0.along - traveled > 15 && $0.along - traveled <= 400 && $0.kind.isRelevant() }
+            .min { $0.along < $1.along }
+        guard let next else {
+            if hazardAhead != nil { hazardAhead = nil }
+            return
+        }
+        let distance = next.along - traveled
+        let ahead = HazardAhead(id: next.id, kind: next.kind, distanceText: FormatUtils.formatDistance(distance))
+        if hazardAhead != ahead { hazardAhead = ahead }
+        if distance <= max(150, speedMps * 8), distance >= 40, announcedHazards.insert(next.id).inserted {
+            say(HazardDetector.sentence(next.kind, meters: distance))
+        }
+    }
+
     private func resetGuidanceExtras() {
+        hazardAhead = nil
+        announcedHazards = []
         junction = nil
         junctionSticky = nil
         arrowManeuverIndex = nil
@@ -1035,6 +1196,8 @@ final class AppModel: ObservableObject {
             arrowManeuverIndex = arrowIndex
             map.setManeuverArrow(arrowIndex.map { JunctionView.arrow(tracker, index: $0, speedMps: speedMps) } ?? [])
         }
+
+        updateHazards(current, tracker, speedMps: speedMps)
 
         var ahead: [MotorwayAheadItem] = []
         if settings.motorwayBar, speedLimits.peekSegment(at: current)?.motorway == true {
@@ -1363,15 +1526,29 @@ final class AppModel: ObservableObject {
         pendingFavorite = PendingFavorite(name: result.displayName, point: result.point)
     }
 
-    func confirmFavorite(name: String, point: LatLon, asHome: Bool) {
+    func confirmFavorite(name: String, point: LatLon, asHome: Bool, symbol: String? = nil, colorHex: Int? = nil, group: String? = nil) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         let finalName = trimmed.isEmpty ? Self.defaultLabel(point) : trimmed
+        let cleanGroup = group?.trimmingCharacters(in: .whitespaces)
         if asHome {
-            FavoritesStore.setHome(name: finalName, point: point)
+            FavoritesStore.setHome(name: finalName, point: point, symbol: symbol, colorHex: colorHex, group: cleanGroup)
         } else {
-            FavoritesStore.add(name: finalName, point: point)
+            FavoritesStore.add(name: finalName, point: point, symbol: symbol, colorHex: colorHex, group: cleanGroup)
         }
         showToast(asHome ? String(localized: "Als Zuhause gespeichert.") : String(localized: "Favorit gespeichert."))
+    }
+
+    /** Favoriten-Pins auf der Karte (Einstellung „Favoriten auf der Karte“). */
+    func refreshFavoriteMarkers() {
+        map.setFavorites(settings.favoritesOnMap ? FavoritesStore.list() : [])
+    }
+
+    /** Tipp auf einen Favoriten-Pin: Ort-Blatt wie bei POIs (Route, Infos aus OSM, falls vorhanden). */
+    private func onFavoriteTap(_ id: String) {
+        guard !navigationActive, !pickingFavoriteLocation, let favorite = FavoritesStore.list().first(where: { $0.id == id }) else { return }
+        if showSearchResults || searchFocused { dismissSearch() }
+        poiSelection = PoiSelection(name: favorite.name, point: favorite.point)
+        loadPoiDetails()
     }
 
     // MARK: - Auf der Route suchen
@@ -1549,6 +1726,14 @@ final class AppModel: ObservableObject {
             searchNearby(.fuel)
         case .shared:
             checkSharedInbox()
+        case .car:
+            if parkedCar == nil {
+                showToast(String(localized: "Kein Parkplatz gemerkt"))
+            } else {
+                requestedSheet = .some(.parking)
+            }
+        case .walkToCar:
+            if parkedCar == nil { showToast(String(localized: "Kein Parkplatz gemerkt")) } else { walkToCar() }
         case .open:
             break
         }
@@ -1571,6 +1756,15 @@ final class AppModel: ObservableObject {
 
     func navigateToFavorite(_ favorite: Favorite) {
         selectSearchResult(SearchResult(displayName: favorite.name, lat: favorite.point.latitude, lon: favorite.point.longitude, boundingBox: nil))
+    }
+
+    /** Für Siri „Wann komme ich an?“; nil = keine Navigation. */
+    func navigationStatusSentence() -> String? {
+        guard navigationActive, let tracker, let position = lastDisplayPosition else { return nil }
+        let distance = FormatUtils.formatDistance(tracker.remainingDistance(position))
+        let duration = FormatUtils.formatDuration(tracker.remainingDuration(position))
+        let destination = waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? String(localized: "Ziel")
+        return String(localized: "Ankunft in \(destination) um \(hud.etaText) – noch \(distance), etwa \(duration).")
     }
 
     // MARK: - Parken

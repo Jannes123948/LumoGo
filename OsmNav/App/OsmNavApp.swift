@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct OsmNavApp: App {
@@ -13,6 +14,8 @@ struct OsmNavApp: App {
         let settings = AppSettings()
         _settings = StateObject(wrappedValue: settings)
         _model = StateObject(wrappedValue: AppModel(settings: settings))
+        // Losfahr-Erinnerung antippen → Navigation starten.
+        UNUserNotificationCenter.current().delegate = NotificationHandler.shared
         // Offline-Suchdaten (mit Adressen) im Hintergrund vorladen.
         OfflinePlacesStore.shared.warmUp()
         // Siri kennt die Favoriten-Namen („Navigiere mit LumoGo zu Arbeit“) — bei Änderungen neu melden.
