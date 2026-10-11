@@ -50,14 +50,14 @@ private struct QuickActionsView: View {
             .widgetBackground(Color.clear)
         case .systemMedium:
             HStack(spacing: 10) {
-                QuickTile(title: "Nach Hause", symbol: "house.fill", link: .home, prominent: true)
+                QuickTile(title: String(localized: "Nach Hause"), symbol: "house.fill", link: .home, prominent: true)
                 VStack(spacing: 10) {
-                    QuickTile(title: "Favoriten", symbol: "star.fill", link: .favorites)
-                    QuickTile(title: "Suchen", symbol: "magnifyingglass", link: .search)
+                    QuickTile(title: String(localized: "Favoriten"), symbol: "star.fill", link: .favorites)
+                    QuickTile(title: String(localized: "Suchen"), symbol: "magnifyingglass", link: .search)
                 }
                 VStack(spacing: 10) {
-                    QuickTile(title: "Tanken", symbol: "fuelpump.fill", link: .nearbyFuel)
-                    QuickTile(title: "Karte", symbol: "map.fill", link: .open)
+                    QuickTile(title: String(localized: "Tanken"), symbol: "fuelpump.fill", link: .nearbyFuel)
+                    QuickTile(title: String(localized: "Karte"), symbol: "map.fill", link: .open)
                 }
             }
             .padding(12)

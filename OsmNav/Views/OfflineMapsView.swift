@@ -7,11 +7,11 @@ enum ZoomPreset: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .overview: return "Übersicht (6–10)"
-        case .standard: return "Standard (6–12)"
-        case .detailed: return "Sehr detailliert (6–14)"
-        case .navigation: return "Navigation (6–16)"
-        case .custom: return "Benutzerdefiniert …"
+        case .overview: return String(localized: "Übersicht (6–10)")
+        case .standard: return String(localized: "Standard (6–12)")
+        case .detailed: return String(localized: "Sehr detailliert (6–14)")
+        case .navigation: return String(localized: "Navigation (6–16)")
+        case .custom: return String(localized: "Benutzerdefiniert …")
         }
     }
 
@@ -104,7 +104,7 @@ struct OfflineMapsView: View {
                         }
                         Button {
                             manager.download(
-                                name: selectedName.isEmpty ? "Kartenpaket" : selectedName,
+                                name: selectedName.isEmpty ? String(localized: "Kartenpaket") : selectedName,
                                 bbox: box,
                                 minZoom: zoomRange.lowerBound,
                                 maxZoom: zoomRange.upperBound,
@@ -142,7 +142,7 @@ struct OfflineMapsView: View {
                     customRange: min(customMin, customMax)...max(customMin, customMax)
                 ) { box in
                     if selectedBox == nil || selectedName.isEmpty {
-                        selectedName = "Eigener Bereich \(Date().formatted(date: .numeric, time: .omitted))"
+                        selectedName = String(localized: "Eigener Bereich \(Date().formatted(date: .numeric, time: .omitted))")
                     }
                     selectedBox = box
                     results = []
@@ -163,7 +163,7 @@ struct OfflineMapsView: View {
         Task {
             results = (try? await NominatimClient.search(q)) ?? []
             searching = false
-            if results.allSatisfy({ $0.boundingBox == nil }) { manager.lastMessage = "Kein passendes Gebiet gefunden." }
+            if results.allSatisfy({ $0.boundingBox == nil }) { manager.lastMessage = String(localized: "Kein passendes Gebiet gefunden.") }
         }
     }
 }
@@ -196,10 +196,10 @@ private struct PackRow: View {
                 .font(.caption).foregroundStyle(.secondary)
             // Laden UND Aktualisieren der Suchdaten — vorher gab es dafür keine Anzeige (Nutzermeldung).
             if let fraction = manager.searchFraction[pack.id] {
-                DataProgressRow(fraction: fraction, text: "Adressen & Orte werden geladen")
+                DataProgressRow(fraction: fraction, text: String(localized: "Adressen & Orte werden geladen"))
             }
             if let progress = manager.routingProgress[pack.id] {
-                DataProgressRow(fraction: manager.routingFraction[pack.id] ?? 0, text: "Straßennetz fürs Offline-Routing: \(progress)")
+                DataProgressRow(fraction: manager.routingFraction[pack.id] ?? 0, text: String(localized: "Straßennetz fürs Offline-Routing: \(progress)"))
             } else if pack.isComplete {
                 Label(pack.hasRouting ? "Offline-Routing verfügbar" : "Kein Offline-Routing (Menü → Routing-Daten laden)",
                       systemImage: pack.hasRouting ? "checkmark.circle.fill" : "exclamationmark.circle")

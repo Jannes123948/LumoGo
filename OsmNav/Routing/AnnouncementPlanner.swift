@@ -33,7 +33,8 @@ final class AnnouncementPlanner {
         let step = tracker.currentStep()
         // Die Ankunft sagt die Navigation selbst an (erst bei < 15 m) — hier nicht doppelt.
         if step.maneuverType == "arrive" { return nil }
-        return sentence("Jetzt \(step.spokenActionShort)", tracker: tracker, chainFrom: 1)
+        let main = AppLanguage.isEnglish ? EnglishInstructions.now(step.spokenActionShort) : "Jetzt \(step.spokenActionShort)"
+        return sentence(main, tracker: tracker, chainFrom: 1)
     }
 
     /** Vorankündigung fürs nächste Manöver, falls gerade eine Stufe erreicht wurde. */
@@ -63,7 +64,7 @@ final class AnnouncementPlanner {
         // deutlich darunter (Tempowechsel Stadt→Autobahn mitten im Abschnitt, GPS-Sprung), die
         // gerundete echte Distanz sagen statt z.B. "In 2 Kilometern" bei 1,2 km.
         let spoken = distanceToNext >= stage * 0.85 ? stage : Self.roundForSpeech(distanceToNext)
-        let lead = "In \(Self.spokenDistance(spoken))"
+        let lead = AppLanguage.isEnglish ? EnglishInstructions.lead(spoken) : "In \(Self.spokenDistance(spoken))"
         if next.maneuverType == "arrive" {
             return "\(lead) \(next.spokenAction)."
         }
@@ -76,6 +77,11 @@ final class AnnouncementPlanner {
               let first = tracker.maneuver(after: offset - 1),
               let following = tracker.maneuver(after: offset),
               first.distance <= Self.chainDistanceMeters else { return main + "." }
+        if AppLanguage.isEnglish {
+            return following.maneuverType == "arrive"
+                ? "\(main). \(EnglishInstructions.thenArrive)"
+                : "\(main). \(EnglishInstructions.then(following.spokenActionShort))"
+        }
         if following.maneuverType == "arrive" {
             return "\(main). Danach erreichen Sie Ihr Ziel."
         }

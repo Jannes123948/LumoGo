@@ -189,7 +189,7 @@ struct OfflineAreaPickerView: View {
         let midLat = (box.north + box.south) / 2
         let width = GeoUtils.distanceMeters(LatLon(midLat, box.west), LatLon(midLat, box.east)) / 1000
         let height = GeoUtils.distanceMeters(LatLon(box.south, box.west), LatLon(box.north, box.west)) / 1000
-        func f(_ km: Double) -> String { km < 10 ? String(format: "%.1f", km).replacingOccurrences(of: ".", with: ",") : "\(Int(km.rounded()))" }
+        func f(_ km: Double) -> String { km < 10 ? FormatUtils.decimal(km, digits: 1) : "\(Int(km.rounded()))" }
         return "\(f(width)) × \(f(height)) km"
     }
 }

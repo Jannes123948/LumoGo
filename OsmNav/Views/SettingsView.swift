@@ -7,6 +7,8 @@ struct SettingsView: View {
     @EnvironmentObject private var settings: AppSettings
     @Environment(\.dismiss) private var dismiss
     @State private var confirmReset = false
+    @State private var language = AppLanguage.selected
+    @State private var languageChanged = false
     let openTrips: () -> Void
 
     var body: some View {
@@ -29,6 +31,17 @@ struct SettingsView: View {
                             ColorDots(hexes: [settings.accentHex, settings.resolvedHudBackgroundHex, settings.routeHex])
                         }
                     }
+                    Picker(selection: $language) {
+                        Text("Wie iPhone").tag(AppLanguage.system)
+                        Text(verbatim: "Deutsch").tag(AppLanguage.de)
+                        Text(verbatim: "English").tag(AppLanguage.en)
+                    } label: {
+                        SettingsRow(title: "Sprache", symbol: "globe", color: .blue)
+                    }
+                    .onChange(of: language) { newValue in
+                        AppLanguage.select(newValue)
+                        languageChanged = true
+                    }
                 } header: {
                     Text("Aussehen")
                 }
@@ -37,11 +50,11 @@ struct SettingsView: View {
                         SettingsRow(title: "Navigation", symbol: "location.north.line.fill", color: .blue, value: settings.routingProfile.label)
                     }
                     NavigationLink { VoiceSettingsPage() } label: {
-                        SettingsRow(title: "Sprachausgabe", symbol: "speaker.wave.2.fill", color: .orange, value: settings.voiceEnabled ? "An" : "Aus")
+                        SettingsRow(title: "Sprachausgabe", symbol: "speaker.wave.2.fill", color: .orange, value: settings.voiceEnabled ? String(localized: "An") : String(localized: "Aus"))
                     }
                     NavigationLink { SpeedSettingsPage() } label: {
                         SettingsRow(title: "Tempolimit", symbol: "gauge.medium", color: .red,
-                                    value: settings.showSpeedLimit ? (settings.speedWarning ? "Mit Warnung" : "An") : "Aus")
+                                    value: settings.showSpeedLimit ? (settings.speedWarning ? String(localized: "Mit Warnung") : String(localized: "An")) : String(localized: "Aus"))
                     }
                     NavigationLink { SearchSettingsPage() } label: {
                         SettingsRow(title: "Suche & Orte", symbol: "magnifyingglass", color: .purple)
@@ -78,6 +91,13 @@ struct SettingsView: View {
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
             .confirmationDialog("Alle Einstellungen auf Standard zurücksetzen?", isPresented: $confirmReset, titleVisibility: .visible) {
                 Button("Zurücksetzen", role: .destructive) { settings.resetAll() }
+            }
+            // iOS lädt eine andere Sprache erst beim nächsten Start der App.
+            .alert("Sprache geändert", isPresented: $languageChanged) {
+                Button("Später", role: .cancel) {}
+                Button("App jetzt beenden") { exit(0) }
+            } message: {
+                Text("Die neue Sprache gilt ab dem nächsten Öffnen von LumoGo — für Oberfläche, Ansagen und Stimme. Widgets folgen nach ihrer nächsten Aktualisierung.")
             }
         }
     }
@@ -158,7 +178,7 @@ struct SettingsIcon: View {
 
 /** Zeile mit Symbol-Kästchen, Titel und optionalem aktuellen Wert rechts. */
 struct SettingsRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let color: Color
     var value: String? = nil
@@ -177,12 +197,12 @@ struct SettingsRow: View {
 
 /** Schalter mit Symbol-Kästchen. */
 private struct SettingToggle: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let color: Color
     @Binding var isOn: Bool
 
-    init(_ title: String, symbol: String, color: Color, isOn: Binding<Bool>) {
+    init(_ title: LocalizedStringKey, symbol: String, color: Color, isOn: Binding<Bool>) {
         self.title = title
         self.symbol = symbol
         self.color = color
@@ -354,7 +374,7 @@ private struct DesignSettingsPage: View {
  * „Automatisch“ (wenn [autoHex] gesetzt) und das Farbrad für jede beliebige Farbe.
  */
 private struct ColorSettingRow: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     @Binding var hex: UInt32?
     /** Farbe im Automatik-Modus; nil = Einstellung hat keinen Automatik-Modus. */
@@ -362,7 +382,7 @@ private struct ColorSettingRow: View {
     @State private var expanded = false
 
     private var current: UInt32 { hex ?? autoHex ?? 0 }
-    private var currentName: String { hex == nil ? "Automatisch" : ColorPalette.name(of: current) }
+    private var currentName: String { hex == nil ? String(localized: "Automatisch") : ColorPalette.name(of: current) }
     private let columns = [GridItem(.adaptive(minimum: 38, maximum: 46), spacing: 10)]
 
     var body: some View {
@@ -578,6 +598,7 @@ private struct NavigationSettingsPage: View {
                 SettingToggle("Pfeil flüssig bewegen", symbol: "hare.fill", color: .mint, isOn: $settings.smoothPuck)
                 SettingToggle("Pfeil unten im Bild", symbol: "arrow.down.to.line", color: .cyan, isOn: $settings.navPuckLow)
                 SettingToggle("Straßenname unten anzeigen", symbol: "signpost.right.fill", color: .green, isOn: $settings.showRoadName)
+                SettingToggle("Straßenname auch ohne Navigation", symbol: "signpost.right", color: .green, isOn: $settings.roadNameFreeMode)
                 SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
                 SettingToggle("Kreuzungsansicht", symbol: "arrow.triangle.branch", color: .indigo, isOn: $settings.junctionView)
                 SettingToggle("Abbiegepfeil auf der Karte", symbol: "arrow.turn.up.right", color: .gray, isOn: $settings.maneuverArrow)
@@ -589,7 +610,7 @@ private struct NavigationSettingsPage: View {
             } header: {
                 Text("Während der Navigation")
             } footer: {
-                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
             }
             Section {
                 SettingToggle("Parkplatz merken", symbol: "car.fill", color: .blue, isOn: $settings.parkingMemory)
@@ -636,7 +657,7 @@ private struct NavigationSettingsPage: View {
 private struct VoiceSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
     @EnvironmentObject private var model: AppModel
-    @State private var voices = SpeechService.germanVoices()
+    @State private var voices = SpeechService.voices()
 
     var body: some View {
         Form {
@@ -686,14 +707,14 @@ private struct VoiceSettingsPage: View {
             }
             .disabled(!settings.voiceEnabled)
         }
-        .onAppear { voices = SpeechService.germanVoices() }
+        .onAppear { voices = SpeechService.voices() }
         .navigationTitle("Sprachausgabe")
     }
 }
 
 /** Schieberegler-Zeile mit Symbol-Kästchen und Symbolen an den Enden. */
 private struct SliderRow<S: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let symbol: String
     let color: Color
     let minIcon: String

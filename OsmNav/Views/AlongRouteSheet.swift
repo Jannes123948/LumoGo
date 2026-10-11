@@ -109,9 +109,9 @@ struct AlongRouteSheet: View {
                     results = found
                 }
             } catch AppError.offlineMode {
-                if !Task.isCancelled { error = "Braucht Internet (Offline-Modus ist an)." }
+                if !Task.isCancelled { error = String(localized: "Braucht Internet (Offline-Modus ist an).") }
             } catch {
-                if !Task.isCancelled { self.error = "Suche fehlgeschlagen (Server überlastet?)." }
+                if !Task.isCancelled { self.error = String(localized: "Suche fehlgeschlagen (Server überlastet?).") }
             }
             if !Task.isCancelled { loading = false }
         }

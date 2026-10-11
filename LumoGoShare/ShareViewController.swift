@@ -14,6 +14,8 @@ final class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Sprache der App übernehmen (wirkt beim nächsten Start der Erweiterung).
+        AppLanguage.syncFromAppGroup()
         let host = UIHostingController(rootView: ShareCard(state: state, onOpen: { [weak self] in self?.openInApp() },
                                                           onCancel: { [weak self] in self?.finish() }))
         addChild(host)
@@ -83,7 +85,7 @@ final class ShareViewController: UIViewController {
     private func openInApp() {
         guard let place = state.place else { return }
         guard SharedPlaceInbox.put(place) else {
-            state.error = "LumoGo konnte den Ort nicht übernehmen — beim Signieren fehlt die App Group „\(NavWidgetStore.appGroup)“ für die Erweiterung."
+            state.error = String(localized: "LumoGo konnte den Ort nicht übernehmen — beim Signieren fehlt die App Group „\(NavWidgetStore.appGroup)“ für die Erweiterung.")
             return
         }
         if !openURL(DeepLink.shared.url) {

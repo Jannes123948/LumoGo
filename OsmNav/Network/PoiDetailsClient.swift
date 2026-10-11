@@ -62,7 +62,7 @@ enum PoiDetailsClient {
         let result: Result<Data, Error>? = await withTimeout(seconds: timeoutSeconds) {
             do { return .success(try await OverpassClient.rawQuery(q, retryCount: 2)) } catch { return .failure(error) }
         }
-        guard let result else { throw AppError.server("Zeitüberschreitung") }
+        guard let result else { throw AppError.server(String(localized: "Zeitüberschreitung")) }
         let data = try result.get()
 
         guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -87,35 +87,35 @@ enum PoiDetailsClient {
 enum PoiCategoryNames {
 
     private static let names: [String: String] = [
-        "restaurant": "Restaurant", "fast_food": "Fast Food", "cafe": "Café", "bar": "Bar", "pub": "Kneipe",
-        "biergarten": "Biergarten", "ice_cream": "Eisdiele", "fuel": "Tankstelle", "parking": "Parkplatz",
-        "charging_station": "Ladesäule", "pharmacy": "Apotheke", "hospital": "Krankenhaus", "doctors": "Arztpraxis",
-        "dentist": "Zahnarzt", "bank": "Bank", "atm": "Geldautomat", "post_office": "Post", "school": "Schule",
-        "kindergarten": "Kindergarten", "university": "Universität", "library": "Bibliothek", "police": "Polizei",
-        "townhall": "Rathaus", "theatre": "Theater", "cinema": "Kino", "place_of_worship": "Gotteshaus",
-        "toilets": "Toiletten", "car_wash": "Autowäsche", "car_rental": "Autovermietung", "fire_station": "Feuerwehr",
-        "supermarket": "Supermarkt", "bakery": "Bäckerei", "butcher": "Metzgerei", "convenience": "Lebensmittel",
-        "kiosk": "Kiosk", "clothes": "Bekleidung", "shoes": "Schuhe", "hairdresser": "Friseur", "chemist": "Drogerie",
-        "doityourself": "Baumarkt", "hardware": "Eisenwaren", "electronics": "Elektronik", "furniture": "Möbel",
-        "car": "Autohaus", "car_repair": "Autowerkstatt", "bicycle": "Fahrradladen", "florist": "Blumen",
-        "optician": "Optiker", "beverages": "Getränkemarkt", "department_store": "Kaufhaus", "mall": "Einkaufszentrum",
-        "books": "Buchhandlung", "gift": "Geschenke", "jewelry": "Schmuck", "mobile_phone": "Handyladen",
-        "hotel": "Hotel", "guest_house": "Pension", "hostel": "Hostel", "camp_site": "Campingplatz",
-        "museum": "Museum", "attraction": "Sehenswürdigkeit", "viewpoint": "Aussichtspunkt",
-        "information": "Touristeninformation", "zoo": "Zoo", "theme_park": "Freizeitpark",
-        "park": "Park", "playground": "Spielplatz", "sports_centre": "Sportzentrum", "swimming_pool": "Schwimmbad",
-        "fitness_centre": "Fitnessstudio", "pitch": "Sportplatz", "stadium": "Stadion",
-        "station": "Bahnhof", "halt": "Haltepunkt", "tram_stop": "Straßenbahnhaltestelle",
-        "castle": "Burg/Schloss", "monument": "Denkmal", "memorial": "Gedenkstätte", "ruins": "Ruine",
-        "aerodrome": "Flugplatz"
+        "restaurant": String(localized: "Restaurant"), "fast_food": String(localized: "Fast Food"), "cafe": String(localized: "Café"), "bar": String(localized: "Bar"), "pub": String(localized: "Kneipe"),
+        "biergarten": String(localized: "Biergarten"), "ice_cream": String(localized: "Eisdiele"), "fuel": String(localized: "Tankstelle"), "parking": String(localized: "Parkplatz"),
+        "charging_station": String(localized: "Ladesäule"), "pharmacy": String(localized: "Apotheke"), "hospital": String(localized: "Krankenhaus"), "doctors": String(localized: "Arztpraxis"),
+        "dentist": String(localized: "Zahnarzt"), "bank": String(localized: "Bank"), "atm": String(localized: "Geldautomat"), "post_office": String(localized: "Post"), "school": String(localized: "Schule"),
+        "kindergarten": String(localized: "Kindergarten"), "university": String(localized: "Universität"), "library": String(localized: "Bibliothek"), "police": String(localized: "Polizei"),
+        "townhall": String(localized: "Rathaus"), "theatre": String(localized: "Theater"), "cinema": String(localized: "Kino"), "place_of_worship": String(localized: "Gotteshaus"),
+        "toilets": String(localized: "Toiletten"), "car_wash": String(localized: "Autowäsche"), "car_rental": String(localized: "Autovermietung"), "fire_station": String(localized: "Feuerwehr"),
+        "supermarket": String(localized: "Supermarkt"), "bakery": String(localized: "Bäckerei"), "butcher": String(localized: "Metzgerei"), "convenience": String(localized: "Lebensmittel"),
+        "kiosk": String(localized: "Kiosk"), "clothes": String(localized: "Bekleidung"), "shoes": String(localized: "Schuhe"), "hairdresser": String(localized: "Friseur"), "chemist": String(localized: "Drogerie"),
+        "doityourself": String(localized: "Baumarkt"), "hardware": String(localized: "Eisenwaren"), "electronics": String(localized: "Elektronik"), "furniture": String(localized: "Möbel"),
+        "car": String(localized: "Autohaus"), "car_repair": String(localized: "Autowerkstatt"), "bicycle": String(localized: "Fahrradladen"), "florist": String(localized: "Blumen"),
+        "optician": String(localized: "Optiker"), "beverages": String(localized: "Getränkemarkt"), "department_store": String(localized: "Kaufhaus"), "mall": String(localized: "Einkaufszentrum"),
+        "books": String(localized: "Buchhandlung"), "gift": String(localized: "Geschenke"), "jewelry": String(localized: "Schmuck"), "mobile_phone": String(localized: "Handyladen"),
+        "hotel": String(localized: "Hotel"), "guest_house": String(localized: "Pension"), "hostel": String(localized: "Hostel"), "camp_site": String(localized: "Campingplatz"),
+        "museum": String(localized: "Museum"), "attraction": String(localized: "Sehenswürdigkeit"), "viewpoint": String(localized: "Aussichtspunkt"),
+        "information": String(localized: "Touristeninformation"), "zoo": String(localized: "Zoo"), "theme_park": String(localized: "Freizeitpark"),
+        "park": String(localized: "Park"), "playground": String(localized: "Spielplatz"), "sports_centre": String(localized: "Sportzentrum"), "swimming_pool": String(localized: "Schwimmbad"),
+        "fitness_centre": String(localized: "Fitnessstudio"), "pitch": String(localized: "Sportplatz"), "stadium": String(localized: "Stadion"),
+        "station": String(localized: "Bahnhof"), "halt": String(localized: "Haltepunkt"), "tram_stop": String(localized: "Straßenbahnhaltestelle"),
+        "castle": String(localized: "Burg/Schloss"), "monument": String(localized: "Denkmal"), "memorial": String(localized: "Gedenkstätte"), "ruins": String(localized: "Ruine"),
+        "aerodrome": String(localized: "Flugplatz")
     ]
 
     static func label(_ tags: [String: String]) -> String? {
         if tags["amenity"] == "place_of_worship" {
             switch tags["religion"] {
-            case "christian": return "Kirche"
-            case "muslim": return "Moschee"
-            case "jewish": return "Synagoge"
+            case "christian": return String(localized: "Kirche")
+            case "muslim": return String(localized: "Moschee")
+            case "jewish": return String(localized: "Synagoge")
             default: break
             }
         }

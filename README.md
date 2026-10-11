@@ -36,6 +36,11 @@ Außerdem: `LumoGoWidgets/` = Widget-Erweiterung (Navigation auf Sperrbildschirm
 Schnellzugriff-Widget), `LumoGoShare/` = Teilen-Erweiterung (Orte aus Apple Karten, Google Maps & Co.
 übernehmen), `Shared/` = Code für App UND Erweiterungen (Live-Aktivitäts-Daten, `lumogo://`-Links, geteilte Orte).
 
+**Sprachen**: Deutsch (Quellsprache) und Englisch — Einstellungen → „Sprache“ (gilt ab dem nächsten Start).
+Übersetzungen in den String-Katalogen `OsmNav/Resources/Localizable.xcstrings`, `LumoGoWidgets/Localizable.xcstrings`,
+`LumoGoShare/Localizable.xcstrings`, Siri-Sätze in `OsmNav/Resources/en.lproj/AppShortcuts.strings`. Nach neuen
+Texten: bauen, dann `python3 Tools/l10n.py check` (zeigt fehlende Übersetzungen und nicht übersetzbare Texte).
+
 Das Xcode-Projekt nutzt „synchronisierte Ordner“ (Xcode 16): neue Dateien in `OsmNav/`, `Shared/`, `LumoGoWidgets/` und `LumoGoShare/` werden
 automatisch mitgebaut, ohne sie im Projekt eintragen zu müssen.
 

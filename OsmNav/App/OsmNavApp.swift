@@ -6,6 +6,8 @@ struct OsmNavApp: App {
     @StateObject private var model: AppModel
 
     init() {
+        // Sprachwahl auch für Widgets/Teilen-Erweiterung ablegen.
+        UserDefaults(suiteName: NavWidgetStore.appGroup)?.set(AppLanguage.selected.rawValue, forKey: AppLanguage.settingsKey)
         // Netzwerk-Einstellungen für MapLibre (User-Agent, Offline-Sperre) vor allem anderen.
         MapController.configureNetwork()
         let settings = AppSettings()

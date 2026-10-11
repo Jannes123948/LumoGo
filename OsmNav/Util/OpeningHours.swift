@@ -27,7 +27,10 @@ struct OpeningHours {
     /** Index 0 = Montag … 6 = Sonntag. */
     let days: [[Span]]
 
-    static let dayNames = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+    static var dayNames: [String] {
+        [String(localized: "Mo"), String(localized: "Di"), String(localized: "Mi"), String(localized: "Do"),
+         String(localized: "Fr"), String(localized: "Sa"), String(localized: "So")]
+    }
     private static let dayTokens: [String: Int] = [
         "mo": 0, "tu": 1, "di": 1, "we": 2, "mi": 2, "th": 3, "do": 3,
         "fr": 4, "sa": 5, "su": 6, "so": 6
@@ -139,7 +142,7 @@ struct OpeningHours {
     }
 
     func status(at date: Date = Date(), calendar: Calendar = .current) -> Status {
-        if isAlwaysOpen { return Status(isOpen: true, changesSoon: false, text: "Rund um die Uhr geöffnet") }
+        if isAlwaysOpen { return Status(isOpen: true, changesSoon: false, text: String(localized: "Rund um die Uhr geöffnet")) }
         let today = Self.dayIndex(date, calendar: calendar)
         let now = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
 
@@ -163,14 +166,15 @@ struct OpeningHours {
         if let current = merged.first(where: { $0.start <= now && now < $0.end }) {
             let soon = current.end - now <= 60
             return Status(isOpen: true, changesSoon: soon,
-                          text: (soon ? "Schließt bald · " : "Geöffnet · bis ") + Self.describe(current.end, now: now, today: today))
+                          text: soon ? String(localized: "Schließt bald · \(Self.describe(current.end, now: now, today: today))")
+                                     : String(localized: "Geöffnet · bis \(Self.describe(current.end, now: now, today: today))"))
         }
         if let next = merged.first(where: { $0.start > now }) {
             let soon = next.start - now <= 60
             return Status(isOpen: false, changesSoon: soon,
-                          text: "Geschlossen · öffnet " + Self.describe(next.start, now: now, today: today, withUm: true))
+                          text: String(localized: "Geschlossen · öffnet \(Self.describe(next.start, now: now, today: today, withUm: true))"))
         }
-        return Status(isOpen: false, changesSoon: false, text: "Geschlossen")
+        return Status(isOpen: false, changesSoon: false, text: String(localized: "Geschlossen"))
     }
 
     /** "22:00" (heute), "morgen um 08:00", "Mo um 08:00". */
@@ -180,9 +184,9 @@ struct OpeningHours {
         // Schließen genau um Mitternacht: "bis 24:00" statt "bis morgen um 00:00".
         if absolute == 1440 && !withUm { return "24:00" }
         switch dayOffset {
-        case 0: return withUm ? "um \(time)" : time
-        case 1: return "morgen um \(time)"
-        default: return "\(dayNames[(today + dayOffset) % 7]) um \(time)"
+        case 0: return withUm ? String(localized: "um \(time)") : time
+        case 1: return String(localized: "morgen um \(time)")
+        default: return String(localized: "\(dayNames[(today + dayOffset) % 7]) um \(time)")
         }
     }
 
@@ -195,9 +199,9 @@ struct OpeningHours {
         days.enumerated().map { index, spans in
             let text: String
             if spans.isEmpty {
-                text = "Geschlossen"
+                text = String(localized: "Geschlossen")
             } else if spans.contains(where: { $0.start == 0 && $0.end >= 1440 }) {
-                text = "24 Stunden"
+                text = String(localized: "24 Stunden")
             } else {
                 text = spans.map { span in
                     let end = span.end == 1440 ? "24:00" : Self.clock(span.end % 1440)

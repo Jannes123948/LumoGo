@@ -11,9 +11,9 @@ enum AppError: LocalizedError {
         switch self {
         case .http(let code): return "HTTP \(code)"
         case .server(let message): return message
-        case .parse: return "Antwort konnte nicht verarbeitet werden"
-        case .noResults: return "Keine Ergebnisse"
-        case .offlineMode: return "Offline-Modus ist an"
+        case .parse: return String(localized: "Antwort konnte nicht verarbeitet werden")
+        case .noResults: return String(localized: "Keine Ergebnisse")
+        case .offlineMode: return String(localized: "Offline-Modus ist an")
         }
     }
 }

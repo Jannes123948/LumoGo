@@ -82,10 +82,10 @@ enum TileRoadBuilder {
             let offset = doneTiles
             let tiles = try await VectorTileSource.load(block, databasePath: databasePath, preferNetwork: preferNetwork) { done, _ in
                 // Laden ≈ 70 %, Bauen ≈ 30 % der Zeit.
-                progress("Kacheln \(offset + done)/\(totalTiles)", 0.7 * Double(offset + done) / Double(max(totalTiles, 1)))
+                progress(String(localized: "Kacheln \(offset + done)/\(totalTiles)"), 0.7 * Double(offset + done) / Double(max(totalTiles, 1)))
             }
             doneTiles += block.xs.count * block.ys.count
-            progress(blocks.count > 1 ? "Block \(i + 1)/\(blocks.count) wird gebaut …" : "wird gebaut …",
+            progress(blocks.count > 1 ? String(localized: "Block \(i + 1)/\(blocks.count) wird gebaut …") : String(localized: "wird gebaut …"),
                      0.7 + 0.3 * Double(i) / Double(blocks.count))
             // Leerer Block (Meer, Grenzgebiet ohne Straßen) ist kein Fehler.
             guard let (data, nodes) = try? build(tiles, includePaths: includePaths) else { continue }

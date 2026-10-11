@@ -44,18 +44,18 @@ enum WeatherCode {
 
     static func text(_ code: Int) -> String {
         switch code {
-        case 0: return "Sonnig"
-        case 1: return "Überwiegend sonnig"
-        case 2: return "Teils bewölkt"
-        case 3: return "Bewölkt"
-        case 45, 48: return "Nebel"
-        case 51...57: return "Nieselregen"
-        case 61...67: return code == 66 || code == 67 ? "Eisregen" : "Regen"
-        case 71...77: return "Schnee"
-        case 80...82: return "Regenschauer"
-        case 85, 86: return "Schneeschauer"
-        case 95...99: return "Gewitter"
-        default: return "Bewölkt"
+        case 0: return String(localized: "Sonnig")
+        case 1: return String(localized: "Überwiegend sonnig")
+        case 2: return String(localized: "Teils bewölkt")
+        case 3: return String(localized: "Bewölkt")
+        case 45, 48: return String(localized: "Nebel")
+        case 51...57: return String(localized: "Nieselregen")
+        case 61...67: return code == 66 || code == 67 ? String(localized: "Eisregen") : String(localized: "Regen")
+        case 71...77: return String(localized: "Schnee")
+        case 80...82: return String(localized: "Regenschauer")
+        case 85, 86: return String(localized: "Schneeschauer")
+        case 95...99: return String(localized: "Gewitter")
+        default: return String(localized: "Bewölkt")
         }
     }
 }

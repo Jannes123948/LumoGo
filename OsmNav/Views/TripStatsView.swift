@@ -10,7 +10,7 @@ struct TripStatsSection: View {
         let stats = TripStats(trips: trips)
         Section {
             HStack(spacing: 0) {
-                statTile("\(stats.count)", "Fahrten")
+                statTile(String(localized: "\(stats.count)"), String(localized: "Fahrten"))
                 statTile(FormatUtils.formatDistance(stats.totalMeters), "gesamt")
                 statTile(FormatUtils.formatDuration(stats.totalSeconds), "unterwegs")
             }
@@ -32,13 +32,13 @@ struct TripStatsSection: View {
             .padding(.vertical, 4)
 
             if let longest = stats.longest {
-                row("Längste Fahrt", "\(FormatUtils.formatDistance(longest.drivenMeters ?? longest.distanceMeters)) · \(longest.destinationName.components(separatedBy: ",").first ?? "")")
+                row(String(localized: "Längste Fahrt"), "\(FormatUtils.formatDistance(longest.drivenMeters ?? longest.distanceMeters)) · \(longest.destinationName.components(separatedBy: ",").first ?? "")")
             }
             if let fastest = stats.fastest, let max = fastest.maxKmh {
-                row("Höchstgeschwindigkeit", "\(Int(max.rounded())) km/h")
+                row(String(localized: "Höchstgeschwindigkeit"), String(localized: "\(Int(max.rounded())) km/h"))
             }
             if !stats.topDestinations.isEmpty {
-                row("Häufigste Ziele", stats.topDestinations.map { "\($0.name) (\($0.count)×)" }.joined(separator: ", "))
+                row(String(localized: "Häufigste Ziele"), stats.topDestinations.map { String(localized: "\($0.name) (\($0.count)×)") }.joined(separator: ", "))
             }
             if let csvFile {
                 ShareLink(item: csvFile) {
@@ -121,7 +121,7 @@ struct TripStats {
             return String(format: "%.\(digits)f", value).replacingOccurrences(of: ".", with: ",")
         }
         func field(_ text: String) -> String { "\"" + text.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }
-        var lines = ["Datum;Ziel;Geplant (km);Gefahren (km);Dauer (min);Ø (km/h);Max (km/h)"]
+        var lines = [String(localized: "Datum;Ziel;Geplant (km);Gefahren (km);Dauer (min);Ø (km/h);Max (km/h)")]
         for trip in trips.sorted(by: { $0.timestamp < $1.timestamp }) {
             lines.append([
                 date.string(from: trip.timestamp),

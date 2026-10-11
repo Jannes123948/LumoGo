@@ -7,13 +7,13 @@ enum AlongRouteCategory: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .fuel: return "Tankstelle"
-        case .restArea: return "Rastplatz"
-        case .supermarket: return "Supermarkt"
-        case .toilets: return "Toilette"
-        case .food: return "Essen"
-        case .parking: return "Parken"
-        case .charging: return "Laden"
+        case .fuel: return String(localized: "Tankstelle")
+        case .restArea: return String(localized: "Rastplatz")
+        case .supermarket: return String(localized: "Supermarkt")
+        case .toilets: return String(localized: "Toilette")
+        case .food: return String(localized: "Essen")
+        case .parking: return String(localized: "Parken")
+        case .charging: return String(localized: "Laden")
         }
     }
 

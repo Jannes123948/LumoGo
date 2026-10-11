@@ -46,13 +46,18 @@ enum OsrmClient {
 
     /** OSRMs `nearest`-Dienst: nächstgelegener Punkt auf dem Straßennetz ("Snap to road"). */
     static func getNearestRoadPoint(_ point: LatLon) async throws -> LatLon {
+        try await getNearestRoad(point).point
+    }
+
+    /** Wie [getNearestRoadPoint], dazu der Straßenname (leer = unbenannt). */
+    static func getNearestRoad(_ point: LatLon) async throws -> (point: LatLon, name: String) {
         let url = HTTP.url("https://router.project-osrm.org/nearest/v1/driving/\(point.longitude),\(point.latitude)", [("number", "1")])
         let data = try await HTTP.data(session, for: URLRequest(url: url))
         guard let response = try? JSONDecoder().decode(NearestResponse.self, from: data) else { throw AppError.parse }
-        guard response.code == "Ok", let location = response.waypoints?.first?.location, location.count == 2 else {
+        guard response.code == "Ok", let waypoint = response.waypoints?.first, waypoint.location.count == 2 else {
             throw AppError.server(response.code)
         }
-        return LatLon(location[1], location[0])
+        return (LatLon(waypoint.location[1], waypoint.location[0]), waypoint.name ?? "")
     }
 
     // MARK: - DTOs
@@ -64,6 +69,7 @@ enum OsrmClient {
 
     private struct NearestWaypoint: Decodable {
         let location: [Double]
+        let name: String?
     }
 
     private struct RouteResponse: Decodable {

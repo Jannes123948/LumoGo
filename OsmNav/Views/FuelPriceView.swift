@@ -23,14 +23,14 @@ struct FuelPriceView: View {
     }
 
     private var plainText: String {
-        guard let price else { return "\(type.label) geschlossen" }
-        return "\(type.label) " + String(format: "%.3f €", price).replacingOccurrences(of: ".", with: ",")
+        guard let price else { return String(localized: "\(type.label) geschlossen") }
+        return "\(type.label) " + FormatUtils.decimal(price, digits: 3) + " €"
     }
 
     /** „1,73“ und „9“ — gerundet auf ganze Zehntelcent, damit 1,7389999 nicht zu 1,73⁸ wird. */
     private var parts: (main: String, tenth: String)? {
         guard let price else { return nil }
-        let text = String(format: "%.3f", price).replacingOccurrences(of: ".", with: ",")
+        let text = FormatUtils.decimal(price, digits: 3)
         return (String(text.dropLast()), String(text.suffix(1)))
     }
 

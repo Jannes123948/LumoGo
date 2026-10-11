@@ -14,8 +14,8 @@ struct WeatherSheet: View {
             List {
                 Section {
                     if let here {
-                        WeatherPointRow(title: "Jetzt", point: here.now)
-                        WeatherPointRow(title: "In 1 Stunde", point: here.inOneHour)
+                        WeatherPointRow(title: String(localized: "Jetzt"), point: here.now)
+                        WeatherPointRow(title: String(localized: "In 1 Stunde"), point: here.inOneHour)
                     } else if let hereError {
                         Text(hereError).foregroundStyle(.secondary)
                     } else {
@@ -64,8 +64,8 @@ struct WeatherSheet: View {
     }
 
     private func title(_ index: Int, count: Int, point: RouteWeatherPoint) -> String {
-        if index == 0 { return model.navigationActive ? "Hier" : "Start" }
-        if index == count - 1 { return "Am Ziel" }
+        if index == 0 { return model.navigationActive ? String(localized: "Hier") : String(localized: "Start") }
+        if index == count - 1 { return String(localized: "Am Ziel") }
         return "km \(Int((point.alongMeters / 1000).rounded()))"
     }
 
@@ -84,12 +84,12 @@ struct WeatherSheet: View {
         }()
         switch await hereResult {
         case .success(let value): here = value
-        case .failure: hereError = "Wetter konnte nicht geladen werden."
-        case nil: hereError = "Standort noch nicht verfügbar."
+        case .failure: hereError = String(localized: "Wetter konnte nicht geladen werden.")
+        case nil: hereError = String(localized: "Standort noch nicht verfügbar.")
         }
         switch await routeResult {
         case .success(let value): route = value
-        case .failure: routeError = "Wetter auf der Strecke konnte nicht geladen werden."
+        case .failure: routeError = String(localized: "Wetter auf der Strecke konnte nicht geladen werden.")
         case nil: route = nil
         }
     }
@@ -121,9 +121,9 @@ struct WeatherPointRow: View {
 
     private var detail: String {
         var parts = [WeatherCode.text(point.weatherCode)]
-        if let probability = point.precipitationProbability { parts.append("Regen \(probability) %") }
+        if let probability = point.precipitationProbability { parts.append(String(localized: "Regen \(probability) %")) }
         if point.precipitation >= 0.1 {
-            parts.append(String(format: "%.1f mm", point.precipitation).replacingOccurrences(of: ".", with: ","))
+            parts.append(FormatUtils.decimal(point.precipitation, digits: 1) + " mm")
         }
         return parts.joined(separator: " · ")
     }

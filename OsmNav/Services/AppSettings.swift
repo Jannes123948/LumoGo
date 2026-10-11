@@ -12,8 +12,8 @@ enum MapEngine: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .vector: return "MapLibre (3D, Vektor)"
-        case .osm: return "OpenStreetMap (klassisch)"
+        case .vector: return String(localized: "MapLibre (3D, Vektor)")
+        case .osm: return String(localized: "OpenStreetMap (klassisch)")
         }
     }
 
@@ -27,9 +27,9 @@ enum MapTheme: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .light: return "Hell"
-        case .dark: return "Dunkel"
-        case .system: return "Systemeinstellung"
+        case .light: return String(localized: "Hell")
+        case .dark: return String(localized: "Dunkel")
+        case .system: return String(localized: "Systemeinstellung")
         }
     }
 
@@ -56,26 +56,26 @@ enum ColorPalette {
     }
 
     static let swatches: [Swatch] = [
-        Swatch(name: "Weiß", hex: 0xFFFFFF),
-        Swatch(name: "Grau", hex: 0x8E8E93),
-        Swatch(name: "Schwarz", hex: 0x1C1C1E),
-        Swatch(name: "Rot", hex: 0xD32F2F),
-        Swatch(name: "Orange", hex: 0xF57C00),
-        Swatch(name: "Gelb", hex: 0xFBC02D),
-        Swatch(name: "Grün", hex: 0x2E7D32),
-        Swatch(name: "Mint", hex: 0x00BFA5),
-        Swatch(name: "Türkis", hex: 0x00838F),
-        Swatch(name: "Hellblau", hex: 0x29B6F6),
-        Swatch(name: "Blau", hex: 0x2962FF),
-        Swatch(name: "Indigo", hex: 0x3949AB),
-        Swatch(name: "Lila", hex: 0x7B3FE4),
-        Swatch(name: "Pink", hex: 0xE91E8C),
-        Swatch(name: "Braun", hex: 0x795548),
+        Swatch(name: String(localized: "Weiß"), hex: 0xFFFFFF),
+        Swatch(name: String(localized: "Grau"), hex: 0x8E8E93),
+        Swatch(name: String(localized: "Schwarz"), hex: 0x1C1C1E),
+        Swatch(name: String(localized: "Rot"), hex: 0xD32F2F),
+        Swatch(name: String(localized: "Orange"), hex: 0xF57C00),
+        Swatch(name: String(localized: "Gelb"), hex: 0xFBC02D),
+        Swatch(name: String(localized: "Grün"), hex: 0x2E7D32),
+        Swatch(name: String(localized: "Mint"), hex: 0x00BFA5),
+        Swatch(name: String(localized: "Türkis"), hex: 0x00838F),
+        Swatch(name: String(localized: "Hellblau"), hex: 0x29B6F6),
+        Swatch(name: String(localized: "Blau"), hex: 0x2962FF),
+        Swatch(name: String(localized: "Indigo"), hex: 0x3949AB),
+        Swatch(name: String(localized: "Lila"), hex: 0x7B3FE4),
+        Swatch(name: String(localized: "Pink"), hex: 0xE91E8C),
+        Swatch(name: String(localized: "Braun"), hex: 0x795548),
     ]
 
     /** Name der Farbe, falls sie in der Palette ist (sonst „Eigene Farbe“). */
     static func name(of hex: UInt32) -> String {
-        swatches.first { $0.hex == hex }?.name ?? "Eigene Farbe"
+        swatches.first { $0.hex == hex }?.name ?? String(localized: "Eigene Farbe")
     }
 }
 
@@ -251,6 +251,8 @@ final class AppSettings: ObservableObject {
     @Published var navPuckLow: Bool { didSet { defaults.set(navPuckLow, forKey: "nav_puck_low") } }
     /** Namensleiste der aktuellen Straße unten in der Navigation. */
     @Published var showRoadName: Bool { didSet { defaults.set(showRoadName, forKey: "show_road_name") } }
+    /** Namensleiste auch ohne Navigation (unter dem Pfeil, solange die Karte folgt). */
+    @Published var roadNameFreeMode: Bool { didSet { defaults.set(roadNameFreeMode, forKey: "road_name_free") } }
     @Published var autoReroute: Bool { didSet { defaults.set(autoReroute, forKey: "auto_reroute") } }
     /** Vor kniffligen Kreuzungen/Ausfahrten heranzoomen + große Fahrstreifen-Pfeile. */
     @Published var junctionView: Bool { didSet { defaults.set(junctionView, forKey: "junction_view") } }
@@ -351,6 +353,7 @@ final class AppSettings: ObservableObject {
         smoothPuck = defaults.object(forKey: "smooth_puck") as? Bool ?? true
         navPuckLow = defaults.object(forKey: "nav_puck_low") as? Bool ?? true
         showRoadName = defaults.object(forKey: "show_road_name") as? Bool ?? true
+        roadNameFreeMode = defaults.object(forKey: "road_name_free") as? Bool ?? true
         autoReroute = defaults.object(forKey: "auto_reroute") as? Bool ?? true
         junctionView = defaults.object(forKey: "junction_view") as? Bool ?? true
         maneuverArrow = defaults.object(forKey: "maneuver_arrow") as? Bool ?? true
@@ -456,6 +459,7 @@ final class AppSettings: ObservableObject {
         smoothPuck = true
         navPuckLow = true
         showRoadName = true
+        roadNameFreeMode = true
         autoReroute = true
         junctionView = true
         maneuverArrow = true

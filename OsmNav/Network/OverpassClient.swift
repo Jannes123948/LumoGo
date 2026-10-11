@@ -15,8 +15,8 @@ struct OverpassPlace: Codable, Hashable {
         guard UserDefaults.standard.object(forKey: "show_open_status") as? Bool ?? true,
               let raw = openingHours, let hours = OpeningHours.parse(raw) else { return nil }
         let status = hours.status()
-        if hours.isAlwaysOpen { return "24 h geöffnet" }
-        return status.isOpen ? (status.changesSoon ? "schließt bald" : "geöffnet") : "geschlossen"
+        if hours.isAlwaysOpen { return String(localized: "24 h geöffnet") }
+        return status.isOpen ? (status.changesSoon ? String(localized: "schließt bald") : String(localized: "geöffnet")) : "geschlossen"
     }
 }
 

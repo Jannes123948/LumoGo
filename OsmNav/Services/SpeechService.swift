@@ -1,6 +1,6 @@
 import AVFoundation
 
-/** Eine auswählbare deutsche Stimme für die Einstellungen. */
+/** Eine auswählbare Stimme (in der App-Sprache) für die Einstellungen. */
 struct VoiceOption: Identifiable, Hashable {
     let id: String
     let name: String
@@ -8,9 +8,9 @@ struct VoiceOption: Identifiable, Hashable {
 
     var qualityLabel: String {
         switch quality {
-        case .premium: return "Premium"
-        case .enhanced: return "Erweitert"
-        default: return "Standard"
+        case .premium: return String(localized: "Premium")
+        case .enhanced: return String(localized: "Erweitert")
+        default: return String(localized: "Standard")
         }
     }
 }
@@ -40,24 +40,34 @@ final class SpeechService: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    /** Alle installierten deutschen Stimmen, beste Qualität zuerst. Siri-Stimmen sind für Apps
-     *  nicht verfügbar und tauchen hier deshalb nicht auf. */
-    static func germanVoices() -> [VoiceOption] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("de") }
-            .sorted {
-                if $0.quality.rawValue != $1.quality.rawValue { return $0.quality.rawValue > $1.quality.rawValue }
-                if $0.language != $1.language { return $0.language == "de-DE" }
-                return $0.name < $1.name
-            }
-            .map { VoiceOption(id: $0.identifier, name: $0.language == "de-DE" ? $0.name : "\($0.name) (\($0.language))", quality: $0.quality) }
+    /** Bevorzugte Sprachvariante: Deutsch = de-DE; Englisch = die des iPhones, falls englisch, sonst en-US. */
+    private static var preferredLanguage: String {
+        guard AppLanguage.isEnglish else { return "de-DE" }
+        let system = AVSpeechSynthesisVoice.currentLanguageCode()
+        return system.hasPrefix("en") ? system : "en-US"
     }
 
-    /** Gewählte Stimme, sonst die beste installierte deutsche. */
+    /** Alle installierten Stimmen in der App-Sprache, beste Qualität zuerst. Siri-Stimmen sind für
+     *  Apps nicht verfügbar und tauchen hier deshalb nicht auf. */
+    static func voices() -> [VoiceOption] {
+        let preferred = preferredLanguage
+        return AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix(AppLanguage.code) }
+            .sorted {
+                if $0.quality.rawValue != $1.quality.rawValue { return $0.quality.rawValue > $1.quality.rawValue }
+                if $0.language != $1.language { return $0.language == preferred }
+                return $0.name < $1.name
+            }
+            .map { VoiceOption(id: $0.identifier, name: $0.language == preferred ? $0.name : "\($0.name) (\($0.language))", quality: $0.quality) }
+    }
+
+    /** Gewählte Stimme (nur wenn sie zur App-Sprache passt), sonst die beste installierte. */
     static func resolveVoice(_ identifier: String?) -> AVSpeechSynthesisVoice? {
-        if let identifier, let voice = AVSpeechSynthesisVoice(identifier: identifier) { return voice }
-        if let best = germanVoices().first { return AVSpeechSynthesisVoice(identifier: best.id) }
-        return AVSpeechSynthesisVoice(language: "de-DE")
+        if let identifier, let voice = AVSpeechSynthesisVoice(identifier: identifier), voice.language.hasPrefix(AppLanguage.code) {
+            return voice
+        }
+        if let best = voices().first { return AVSpeechSynthesisVoice(identifier: best.id) }
+        return AVSpeechSynthesisVoice(language: preferredLanguage)
     }
 
     /** [interrupt] = laufende/wartende Ansagen verwerfen (z.B. Neuberechnung, Hörprobe); sonst

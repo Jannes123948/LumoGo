@@ -17,7 +17,7 @@ enum NominatimClient {
             ("q", query),
             ("format", "json"),
             ("limit", "6"),
-            ("accept-language", "de")
+            ("accept-language", AppLanguage.code)
         ]
         if let near {
             let delta = 0.2 // ~20km Vorrangzone
@@ -40,7 +40,7 @@ enum NominatimClient {
     /** Kurze Adresse eines Punkts („Bautzner Straße 12, Dresden“); nil = nichts gefunden. */
     static func reverse(_ point: LatLon) async throws -> String? {
         let params = [("lat", "\(point.latitude)"), ("lon", "\(point.longitude)"), ("format", "jsonv2"),
-                      ("zoom", "18"), ("accept-language", "de")]
+                      ("zoom", "18"), ("accept-language", AppLanguage.code)]
         let data = try await HTTP.data(session, for: URLRequest(url: HTTP.url("https://nominatim.openstreetmap.org/reverse", params)))
         guard let item = try? JSONDecoder().decode(ReverseItem.self, from: data), let a = item.address else { return nil }
         let street = [a.road ?? a.pedestrian ?? a.square, a.house_number].compactMap { $0 }.joined(separator: " ")

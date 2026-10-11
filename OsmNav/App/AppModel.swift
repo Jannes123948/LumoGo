@@ -89,6 +89,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var navigationActive = false
     @Published private(set) var hud = NavHudState()
     @Published private(set) var followEnabled = true
+    /** Straße an der eigenen Position ohne Navigation (Namensleiste unter dem Pfeil). */
+    @Published private(set) var freeRoadName: String?
     /** Tempolimit an der aktuellen Position (nil = unbekannt) und GPS-Geschwindigkeit. */
     @Published private(set) var speedLimit: SpeedLimit?
     @Published private(set) var speedKmh: Int?
@@ -287,11 +289,11 @@ final class AppModel: ObservableObject {
             guard isStillSearching(query, explicit: showErrors) else { return }
             searchResults = result.results
             showSearchResults = !result.results.isEmpty
-            if result.results.isEmpty && showErrors { showToast("Keine Ergebnisse gefunden.") }
-            if result.usedOfflineSearch { showToast("Treffer aus den Offline-Daten (heruntergeladene Kartenpakete).") }
+            if result.results.isEmpty && showErrors { showToast(String(localized: "Keine Ergebnisse gefunden.")) }
+            if result.usedOfflineSearch { showToast(String(localized: "Treffer aus den Offline-Daten (heruntergeladene Kartenpakete).")) }
         } catch {
             if Task.isCancelled { return }
-            if showErrors { showToast("Suche fehlgeschlagen. Internetverbindung prüfen.") }
+            if showErrors { showToast(String(localized: "Suche fehlgeschlagen. Internetverbindung prüfen.")) }
         }
     }
 
@@ -334,10 +336,10 @@ final class AppModel: ObservableObject {
 
     func searchNearby(_ category: NearbyCategory) {
         guard let center = currentPosition else {
-            showToast("Standort noch nicht verfügbar.")
+            showToast(String(localized: "Standort noch nicht verfügbar."))
             return
         }
-        showToast("Suche in der Nähe …")
+        showToast(String(localized: "Suche in der Nähe …"))
         Task {
             if category == .fuel, !settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces).isEmpty,
                await showFuelPrices(center: center) {
@@ -349,7 +351,7 @@ final class AppModel: ObservableObject {
                     GeoUtils.distanceMeters(center, LatLon($0.lat, $0.lon)) < GeoUtils.distanceMeters(center, LatLon($1.lat, $1.lon))
                 }.prefix(30)
                 if sorted.isEmpty {
-                    showToast("Nichts in der Nähe gefunden.")
+                    showToast(String(localized: "Nichts in der Nähe gefunden."))
                     return
                 }
                 searchResults = sorted.map { place in
@@ -361,9 +363,9 @@ final class AppModel: ObservableObject {
                 showSearchResults = true
                 toast = nil
             } catch AppError.offlineMode {
-                showToast("„In der Nähe“ braucht Internet (Offline-Modus ist an).")
+                showToast(String(localized: "„In der Nähe“ braucht Internet (Offline-Modus ist an)."))
             } catch {
-                showToast("Umkreissuche fehlgeschlagen.")
+                showToast(String(localized: "Umkreissuche fehlgeschlagen."))
             }
         }
     }
@@ -388,12 +390,12 @@ final class AppModel: ObservableObject {
             }
             showSearchResults = true
             showToast(settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces) == TankerkoenigClient.demoKey
-                      ? "Demo-Schlüssel: Tankstellen echt, Preise nicht." : "Preise: Tankerkönig (MTS-K)")
+                      ? String(localized: "Demo-Schlüssel: Tankstellen echt, Preise nicht.") : String(localized: "Preise: Tankerkönig (MTS-K)"))
             return true
         } catch AppError.server(let message) {
-            showToast("Tankerkönig: \(message) — zeige Tankstellen ohne Preise.")
+            showToast(String(localized: "Tankerkönig: \(message) — zeige Tankstellen ohne Preise."))
         } catch {
-            showToast("Spritpreise nicht erreichbar — zeige Tankstellen ohne Preise.")
+            showToast(String(localized: "Spritpreise nicht erreichbar — zeige Tankstellen ohne Preise."))
         }
         // Meldung kurz stehen lassen, bevor die OSM-Suche ihren eigenen Hinweis zeigt.
         try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -434,7 +436,7 @@ final class AppModel: ObservableObject {
             poiTask = Task {
                 do {
                     guard let details = try await PoiDetailsClient.fetchNearest(tap.point, radiusMeters: tap.radiusMeters) else {
-                        if !Task.isCancelled { showToast("Hier ist kein Ort mit Namen eingetragen.") }
+                        if !Task.isCancelled { showToast(String(localized: "Hier ist kein Ort mit Namen eingetragen.")) }
                         return
                     }
                     if Task.isCancelled { return }
@@ -445,7 +447,7 @@ final class AppModel: ObservableObject {
                     map.setSelectedPoi(details.point)
                 } catch {
                     if !Task.isCancelled {
-                        showToast(NetworkPolicy.fullyOffline ? "Ort-Infos brauchen Internet (Offline-Modus ist an)." : "Ort-Infos konnten nicht geladen werden.")
+                        showToast(NetworkPolicy.fullyOffline ? String(localized: "Ort-Infos brauchen Internet (Offline-Modus ist an).") : String(localized: "Ort-Infos konnten nicht geladen werden."))
                     }
                 }
             }
@@ -508,7 +510,7 @@ final class AppModel: ObservableObject {
     }
 
     static func defaultLabel(_ point: LatLon) -> String {
-        String(format: "Kartenpunkt (%.4f, %.4f)", point.latitude, point.longitude)
+        String(format: String(localized: "Kartenpunkt (%.4f, %.4f)"), point.latitude, point.longitude)
     }
 
     func addDestination(_ point: LatLon, label: String? = nil) {
@@ -564,11 +566,11 @@ final class AppModel: ObservableObject {
     /** [startNavigationAfter] = gleich losnavigieren (Widget/Siri „Nach Hause“). */
     func calculateRoute(startNavigationAfter: Bool = false) {
         guard !waypoints.isEmpty else {
-            showToast("Bitte zuerst ein Ziel wählen.")
+            showToast(String(localized: "Bitte zuerst ein Ziel wählen."))
             return
         }
         guard let start = currentPosition else {
-            showToast("Standort noch nicht verfügbar.")
+            showToast(String(localized: "Standort noch nicht verfügbar."))
             return
         }
         if navigationActive { stopNavigation() }
@@ -584,16 +586,16 @@ final class AppModel: ObservableObject {
                 routeOptions = result.routes.map(request.finish)
                 selectRoute(0)
                 fitRouteInView(routeOptions[0])
-                if result.usedOfflineRouting { showToast("Offline-Route berechnet.") }
+                if result.usedOfflineRouting { showToast(String(localized: "Offline-Route berechnet.")) }
                 if startNavigationAfter { startNavigation() }
             } catch let error as OfflineRoutingError {
                 restoreWalkProfile()
-                alertMessage = "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)"
+                alertMessage = String(localized: "Keine Internetverbindung – und offline ging es auch nicht:\n\(error.localizedDescription)")
             } catch {
                 restoreWalkProfile()
                 alertMessage = RouteFetcher.isConnectivityError(error)
-                    ? "Route konnte nicht berechnet werden. Internetverbindung prüfen oder unter „Offline-Karten“ ein Paket für dieses Gebiet herunterladen."
-                    : "Keine Route gefunden. Ist das Ziel mit „\(settings.routingProfile.label)“ erreichbar?"
+                    ? String(localized: "Route konnte nicht berechnet werden. Internetverbindung prüfen oder unter „Offline-Karten“ ein Paket für dieses Gebiet herunterladen.")
+                    : String(localized: "Keine Route gefunden. Ist das Ziel mit „\(settings.routingProfile.label)“ erreichbar?")
             }
         }
     }
@@ -665,7 +667,7 @@ final class AppModel: ObservableObject {
 
     func startNavigation() {
         guard let route = lastRoute else {
-            showToast("Bitte zuerst eine Route berechnen.")
+            showToast(String(localized: "Bitte zuerst eine Route berechnen."))
             return
         }
         let newTracker = RouteProgressTracker(route: route)
@@ -704,7 +706,7 @@ final class AppModel: ObservableObject {
             map.ease(center: current, zoom: navZoom(loc.speed), pitch: currentTilt(), heading: cameraHeading())
         }
         if settings.liveActivityEnabled {
-            liveActivity.start(destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? "Ziel",
+            liveActivity.start(destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? String(localized: "Ziel"),
                                backgroundHex: settings.resolvedHudBackgroundHex,
                                textHex: settings.hudTextHex ?? HexColor.contrastText(on: settings.resolvedHudBackgroundHex),
                                state: liveActivityState())
@@ -725,10 +727,10 @@ final class AppModel: ObservableObject {
             instruction: hud.instruction,
             symbolName: hud.icon.symbolName,
             symbolRotation: hud.icon.rotationDegrees,
-            thenInstruction: then.flatMap { $0.maneuverType == "arrive" ? "Ziel erreichen" : $0.instruction },
+            thenInstruction: then.flatMap { $0.maneuverType == "arrive" ? String(localized: "Ziel erreichen") : $0.instruction },
             etaText: hud.etaText,
             remainingText: hud.summaryText,
-            destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? "Ziel",
+            destination: waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? String(localized: "Ziel"),
             updatedAt: Date(),
             backgroundHex: Int(background),
             textHex: Int(settings.hudTextHex ?? HexColor.contrastText(on: background)),
@@ -760,11 +762,12 @@ final class AppModel: ObservableObject {
     /** [arrived] = am Ziel angekommen (Sperrbildschirm zeigt dann noch kurz „Angekommen“). */
     func stopNavigation(arrived: Bool = false, userEnded: Bool = false) {
         let wasNavigating = navigationActive
+        freeRoadName = nil
         if wasNavigating {
             if profileBeforeWalk != nil {
                 if arrived {
                     forgetParking()
-                    showToast("Am Auto angekommen.")
+                    showToast(String(localized: "Am Auto angekommen."))
                 }
                 restoreWalkProfile()
             } else if settings.parkingMemory, settings.routingProfile == .car, let pos = currentPosition,
@@ -909,6 +912,7 @@ final class AppModel: ObservableObject {
         guard navigationActive, let tracker else {
             // Freier Modus: nur die eigene Geschwindigkeit (ohne Route gibt es keine Tempolimits).
             updateCurrentSpeed(loc)
+            updateFreeRoadName(raw)
             if followEnabled { map.followPuck(pitch: currentTilt()) }
             return
         }
@@ -934,7 +938,7 @@ final class AppModel: ObservableObject {
         }
 
         if tracker.isFinished && tracker.distanceToNextManeuver(display) < 15 {
-            say(profileBeforeWalk != nil ? "Sie sind an Ihrem Auto." : "Sie haben Ihr Ziel erreicht.")
+            say(profileBeforeWalk != nil ? String(localized: "Sie sind an Ihrem Auto.") : String(localized: "Sie haben Ihr Ziel erreicht."))
             if profileBeforeWalk == nil { logCompletedTrip() }
             stopNavigation(arrived: true)
             return
@@ -947,6 +951,16 @@ final class AppModel: ObservableObject {
         if followEnabled {
             map.followPuck(zoom: navZoom(loc.speed), pitch: currentTilt(), heading: cameraHeading())
         }
+    }
+
+    /** Straßenname ohne Navigation: kommt mit dem Einrasten (OSRM `nearest` bzw. Offline-Straßennetz). */
+    private func updateFreeRoadName(_ raw: LatLon) {
+        var name: String?
+        if settings.roadNameFreeMode {
+            if !settings.snapToRoad { roadSnapper.observe(raw) }
+            name = roadSnapper.roadName(near: raw)
+        }
+        if name != freeRoadName { freeRoadName = name }
     }
 
     // MARK: - Tempolimit
@@ -1130,7 +1144,7 @@ final class AppModel: ObservableObject {
               now.timeIntervalSince(speedingSince!) >= 3 else { return }
         if let last = lastSpeedWarning, last.limit == limit, now.timeIntervalSince(last.at) < 120 { return }
         lastSpeedWarning = (limit, now)
-        say("Achtung, Tempolimit \(limit).")
+        say(String(localized: "Achtung, Tempolimit \(limit)."))
     }
 
     /** Kompass dreht den Pfeil nur im freien Modus und nur, wenn gerade kein GPS-Kurs vorliegt. */
@@ -1154,7 +1168,7 @@ final class AppModel: ObservableObject {
         let request = routeRequest(from: current)
         guard request.points.count >= 2 else { return }
         reroutingInProgress = true
-        if announce { say("Route wird neu berechnet.", interrupt: true) }
+        if announce { say(String(localized: "Route wird neu berechnet."), interrupt: true) }
         Task {
             defer { reroutingInProgress = false }
             do {
@@ -1174,7 +1188,7 @@ final class AppModel: ObservableObject {
                 say(newTracker.currentInstruction())
                 loadSpeedLimits(route)
             } catch {
-                showToast("Neuberechnung fehlgeschlagen.")
+                showToast(String(localized: "Neuberechnung fehlgeschlagen."))
             }
         }
     }
@@ -1213,10 +1227,10 @@ final class AppModel: ObservableObject {
         guard navigationActive, let arrival = arrivalDate, let destination = waypoints.last else { return nil }
         let time = arrival.formatted(date: .omitted, time: .shortened)
         let name = destination.label.components(separatedBy: ",").first ?? destination.label
-        let rest = hud.summaryText.components(separatedBy: " · ").first.map { " (noch \($0))" } ?? ""
+        let rest = hud.summaryText.components(separatedBy: " · ").first.map { String(localized: " (noch \($0))") } ?? ""
         let p = destination.point
         let link = String(format: "https://www.openstreetmap.org/?mlat=%.5f&mlon=%.5f#map=17/%.5f/%.5f", p.latitude, p.longitude, p.latitude, p.longitude)
-        return "Ich bin voraussichtlich um \(time) in \(name)\(rest).\n\(link)"
+        return String(localized: "Ich bin voraussichtlich um \(time) in \(name)\(rest).\n\(link)")
     }
 
     /** Teilen-Menü; nur wenn wirklich geteilt wurde, gilt die Zeit als „geteilt“ (für den Verschiebe-Hinweis). */
@@ -1266,7 +1280,7 @@ final class AppModel: ObservableObject {
 
     /** Hörprobe für die Einstellungen (auch wenn Ansagen aus sind). */
     func previewVoice() {
-        say("In 300 Metern rechts abbiegen auf Hauptstraße. Danach links halten.", interrupt: true, force: true)
+        say(String(localized: "In 300 Metern rechts abbiegen auf Hauptstraße. Danach links halten."), interrupt: true, force: true)
     }
 
     /** Kleinster Winkel zwischen zwei Richtungen (0…180°). */
@@ -1315,7 +1329,7 @@ final class AppModel: ObservableObject {
     func compassTapped() {
         if navigationActive {
             northUpNavigation.toggle()
-            showToast(northUpNavigation ? "Norden oben" : "In Fahrtrichtung")
+            showToast(northUpNavigation ? String(localized: "Norden oben") : String(localized: "In Fahrtrichtung"))
             map.ease(heading: cameraHeading(), duration: 0.5)
         } else {
             map.ease(heading: 0, duration: 0.5)
@@ -1339,10 +1353,10 @@ final class AppModel: ObservableObject {
 
     func saveCurrentPositionAsFavorite() {
         guard let pos = currentPosition else {
-            showToast("Standort noch nicht verfügbar.")
+            showToast(String(localized: "Standort noch nicht verfügbar."))
             return
         }
-        pendingFavorite = PendingFavorite(name: "Mein Standort", point: pos)
+        pendingFavorite = PendingFavorite(name: String(localized: "Mein Standort"), point: pos)
     }
 
     func saveSearchResultAsFavorite(_ result: SearchResult) {
@@ -1357,7 +1371,7 @@ final class AppModel: ObservableObject {
         } else {
             FavoritesStore.add(name: finalName, point: point)
         }
-        showToast(asHome ? "Als Zuhause gespeichert." : "Favorit gespeichert.")
+        showToast(asHome ? String(localized: "Als Zuhause gespeichert.") : String(localized: "Favorit gespeichert."))
     }
 
     // MARK: - Auf der Route suchen
@@ -1405,7 +1419,7 @@ final class AppModel: ObservableObject {
             refreshDestinationMarkers()
             if navigationActive, let raw = lastLocation.map({ LatLon($0.coordinate) }) {
                 reroute(from: raw, legIndex: 0, announce: false)
-                say("Zwischenstopp \(place.name) hinzugefügt.", interrupt: true)
+                say(String(localized: "Zwischenstopp \(place.name) hinzugefügt."), interrupt: true)
             } else {
                 calculateRoute()
             }
@@ -1416,7 +1430,7 @@ final class AppModel: ObservableObject {
             waypoints.insert(stop, at: min(waypointOffset + leg, waypoints.count - 1))
             refreshDestinationMarkers()
             reroute(from: raw, legIndex: tracker.currentLegIndex(), announce: false)
-            say("Zwischenstopp \(place.name) hinzugefügt.", interrupt: true)
+            say(String(localized: "Zwischenstopp \(place.name) hinzugefügt."), interrupt: true)
         } else {
             let leg = lastRoute.flatMap { route in route.geometry.first.map { RouteProgressTracker(route: route).legIndex(aheadMeters: place.alongMeters, from: $0) } } ?? 0
             var updated = waypoints
@@ -1425,7 +1439,7 @@ final class AppModel: ObservableObject {
             waypointsChanged()
             calculateRoute()
         }
-        showToast("„\(place.name)“ als Zwischenstopp eingefügt.")
+        showToast(String(localized: "„\(place.name)“ als Zwischenstopp eingefügt."))
     }
 
     // MARK: - GPX-Touren & gespeicherte Routen
@@ -1460,7 +1474,7 @@ final class AppModel: ObservableObject {
         SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: tour.name, stops: [], profile: settings.routingProfile.rawValue,
                                         tourId: tour.id, createdAt: Date()))
         startTour(tour)
-        showToast("Tour „\(tour.name)“ (\(FormatUtils.formatDistance(tour.lengthMeters))) geladen.")
+        showToast(String(localized: "Tour „\(tour.name)“ (\(FormatUtils.formatDistance(tour.lengthMeters))) geladen."))
         return true
     }
 
@@ -1476,10 +1490,10 @@ final class AppModel: ObservableObject {
         } else {
             guard !waypoints.isEmpty else { return }
             let stops = waypoints.map { SavedStop(label: $0.label, lat: $0.point.latitude, lon: $0.point.longitude) }
-            SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: trimmed.isEmpty ? (waypoints.last?.label ?? "Route") : trimmed,
+            SavedRoutesStore.add(SavedRoute(id: UUID().uuidString, name: trimmed.isEmpty ? (waypoints.last?.label ?? String(localized: "Route")) : trimmed,
                                             stops: stops, profile: settings.routingProfile.rawValue, tourId: nil, createdAt: Date()))
         }
-        showToast("Route gespeichert.")
+        showToast(String(localized: "Route gespeichert."))
     }
 
     /** Gespeicherte Route/Tour laden und berechnen. */
@@ -1487,7 +1501,7 @@ final class AppModel: ObservableObject {
         if let profile = RoutingProfile(rawValue: saved.profile) { settings.routingProfile = profile }
         if let tourId = saved.tourId {
             guard let tour = TourStore.load(id: tourId) else {
-                showToast("Die Tour-Datei fehlt.")
+                showToast(String(localized: "Die Tour-Datei fehlt."))
                 return
             }
             startTour(tour)
@@ -1513,14 +1527,14 @@ final class AppModel: ObservableObject {
         switch link {
         case .home:
             guard let home = FavoritesStore.home() else {
-                showToast("Noch kein Zuhause gespeichert — in den Favoriten festlegen.")
+                showToast(String(localized: "Noch kein Zuhause gespeichert — in den Favoriten festlegen."))
                 requestedSheet = .some(.favorites)
                 return
             }
             navigateNow(to: home)
         case .favorite(let id):
             guard let favorite = FavoritesStore.list().first(where: { $0.id == id }) else {
-                showToast("Diesen Favoriten gibt es nicht mehr.")
+                showToast(String(localized: "Diesen Favoriten gibt es nicht mehr."))
                 return
             }
             navigateNow(to: favorite)
@@ -1549,7 +1563,7 @@ final class AppModel: ObservableObject {
         addDestination(favorite.point, label: favorite.name)
         if currentPosition == nil {
             pendingAutoNavigation = true
-            showToast("Warte auf den Standort …")
+            showToast(String(localized: "Warte auf den Standort …"))
         } else {
             calculateRoute(startNavigationAfter: true)
         }
@@ -1575,7 +1589,7 @@ final class AppModel: ObservableObject {
         ParkingStore.save(car)
         parkedCar = car
         refreshParkedCarMarker()
-        if announce { showToast("Parkplatz gemerkt – das Auto-Symbol zeigt, wo es steht.") }
+        if announce { showToast(String(localized: "Parkplatz gemerkt – das Auto-Symbol zeigt, wo es steht.")) }
         Task {
             guard let address = try? await NominatimClient.reverse(point), parkedCar?.date == car.date else { return }
             car.address = address
@@ -1588,11 +1602,11 @@ final class AppModel: ObservableObject {
 
     func rememberParkingHere() {
         guard let pos = currentPosition else {
-            showToast("Standort noch nicht verfügbar.")
+            showToast(String(localized: "Standort noch nicht verfügbar."))
             return
         }
         rememberParking(at: pos)
-        showToast("Parkplatz hier gemerkt.")
+        showToast(String(localized: "Parkplatz hier gemerkt."))
     }
 
     func forgetParking() {
@@ -1619,7 +1633,7 @@ final class AppModel: ObservableObject {
         guard let date = car.reminder else { return }
         Task {
             if await !ParkingStore.scheduleReminder(at: date, address: car.address) {
-                showToast("Mitteilungen sind für LumoGo aus — in den iPhone-Einstellungen erlauben.")
+                showToast(String(localized: "Mitteilungen sind für LumoGo aus — in den iPhone-Einstellungen erlauben."))
                 if var current = parkedCar {
                     current.reminder = nil
                     parkedCar = current
@@ -1643,14 +1657,14 @@ final class AppModel: ObservableObject {
         requestedSheet = .some(nil)
         clearSearch()
         waypoints = []
-        addDestination(car.point, label: car.address.map { "Mein Auto, \($0)" } ?? "Mein Auto")
+        addDestination(car.point, label: car.address.map { String(localized: "Mein Auto, \($0)") } ?? String(localized: "Mein Auto"))
         if settings.routingProfile != .foot {
             profileBeforeWalk = settings.routingProfile
             settings.routingProfile = .foot
         }
         if currentPosition == nil {
             pendingAutoNavigation = true
-            showToast("Warte auf den Standort …")
+            showToast(String(localized: "Warte auf den Standort …"))
         } else {
             calculateRoute(startNavigationAfter: true)
         }
@@ -1670,7 +1684,7 @@ final class AppModel: ObservableObject {
         guard settings.sharedPlaces else { return }
         if navigationActive {
             pendingSharedPlace = place
-            showToast("„\(place.displayName)“ wird nach der Navigation übernommen.")
+            showToast(String(localized: "„\(place.displayName)“ wird nach der Navigation übernommen."))
             return
         }
         applySharedPlace(place)

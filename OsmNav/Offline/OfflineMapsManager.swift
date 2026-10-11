@@ -82,9 +82,9 @@ final class OfflineMapsManager: ObservableObject {
 
     /** Was gerade lädt (Text unter der Prozentanzeige / Bedienungshilfe). */
     var activeDownloadLabel: String {
-        if packs.contains(where: { $0.isActive && !$0.isComplete }) { return "Karte" }
-        if !searchFraction.isEmpty { return "Suche" }
-        return "Routing"
+        if packs.contains(where: { $0.isActive && !$0.isComplete }) { return String(localized: "Karte") }
+        if !searchFraction.isEmpty { return String(localized: "Suche") }
+        return String(localized: "Routing")
     }
 
     /** Ein ganzes Bundesland bei hohem Zoom überfordert den kostenlosen Kachelserver irgendwann
@@ -106,7 +106,7 @@ final class OfflineMapsManager: ObservableObject {
         })
         observers.append(center.addObserver(forName: .MLNOfflinePackError, object: nil, queue: .main) { [weak self] note in
             let error = note.userInfo?[MLNOfflinePackUserInfoKey.error] as? NSError
-            Task { @MainActor in self?.lastMessage = "Download-Fehler: \(error?.localizedDescription ?? "unbekannt")" }
+            Task { @MainActor in self?.lastMessage = String(localized: "Download-Fehler: \(error?.localizedDescription ?? String(localized: "unbekannt"))") }
         })
         packsObservation = storage.observe(\.packs, options: [.initial, .new]) { [weak self] _, _ in
             Task { @MainActor in
@@ -168,7 +168,7 @@ final class OfflineMapsManager: ObservableObject {
         MLNOfflineStorage.shared.addPack(for: region, withContext: data) { [weak self] pack, error in
             Task { @MainActor in
                 if let error {
-                    self?.lastMessage = "Download konnte nicht gestartet werden: \(error.localizedDescription)"
+                    self?.lastMessage = String(localized: "Download konnte nicht gestartet werden: \(error.localizedDescription)")
                     return
                 }
                 pack?.resume()
@@ -218,9 +218,9 @@ final class OfflineMapsManager: ObservableObject {
                     Task { @MainActor in if self.searchFraction[ctx.id] != nil { self.searchFraction[ctx.id] = fraction } }
                 }
                 OfflinePlacesStore.shared.replace(regionId: ctx.id, places: places)
-                lastMessage = "Offline-Suche für „\(ctx.name)“: \(places.count.formatted()) Orte und Adressen gespeichert."
+                lastMessage = String(localized: "Offline-Suche für „\(ctx.name)“: \(places.count.formatted()) Orte und Adressen gespeichert.")
             } catch {
-                lastMessage = "Suchdaten für „\(ctx.name)“ konnten nicht geladen werden (Kachel- und Overpass-Server nicht erreichbar?)."
+                lastMessage = String(localized: "Suchdaten für „\(ctx.name)“ konnten nicht geladen werden (Kachel- und Overpass-Server nicht erreichbar?).")
             }
             fetchingPlaces.remove(ctx.id)
             searchFraction[ctx.id] = nil
@@ -255,7 +255,7 @@ final class OfflineMapsManager: ObservableObject {
     func refreshRoutingData(_ ctx: OfflinePackContext, fresh: Bool = false) {
         guard !fetchingRouting.contains(ctx.id) else { return }
         fetchingRouting.insert(ctx.id)
-        routingProgress[ctx.id] = "startet …"
+        routingProgress[ctx.id] = String(localized: "startet …")
         routingFraction[ctx.id] = 0
         // Läuft parallel zum Suchdaten-Download (Server erlaubt 4 Anfragen je Client) — früher
         // wartete das Straßennetz, bis die Suchdaten fertig waren.
@@ -276,10 +276,12 @@ final class OfflineMapsManager: ObservableObject {
                 try RoadDataStore.replace(packId: ctx.id, parts: parts)
                 await OfflineRouter.shared.invalidate()
                 let size = ByteCountFormatter.string(fromByteCount: Int64(parts.reduce(0) { $0 + $1.data.count }), countStyle: .file)
-                let fallback = used == source ? "" : " — aus \(used == .tiles ? "Kartenkacheln" : "Overpass"), weil die eingestellte Quelle nicht ging"
-                lastMessage = "Offline-Routing für „\(ctx.name)“ ist bereit (\(size)\(fallback))."
+                let fallback = used == source ? "" : (used == .tiles
+                    ? String(localized: " — aus Kartenkacheln, weil die eingestellte Quelle nicht ging")
+                    : String(localized: " — aus Overpass, weil die eingestellte Quelle nicht ging"))
+                lastMessage = String(localized: "Offline-Routing für „\(ctx.name)“ ist bereit (\(size)\(fallback)).")
             } catch {
-                lastMessage = "Straßennetz für „\(ctx.name)“ konnte nicht geladen werden (Kachel- und Overpass-Server nicht erreichbar?). Über das Menü des Pakets später erneut versuchen."
+                lastMessage = String(localized: "Straßennetz für „\(ctx.name)“ konnte nicht geladen werden (Kachel- und Overpass-Server nicht erreichbar?). Über das Menü des Pakets später erneut versuchen.")
             }
             fetchingRouting.remove(ctx.id)
             routingProgress[ctx.id] = nil
@@ -380,7 +382,7 @@ final class OfflineMapsManager: ObservableObject {
             lastProgressAt[id] = nil
             guard let pack = findPack(id), pack.state == .active else { continue }
             pack.suspend()
-            lastMessage = "Download hängt seit 2 Minuten (Kachelserver überlastet?). Pausiert — später fortsetzen oder kleinere Zoomstufe wählen."
+            lastMessage = String(localized: "Download hängt seit 2 Minuten (Kachelserver überlastet?). Pausiert — später fortsetzen oder kleinere Zoomstufe wählen.")
             refresh()
         }
     }

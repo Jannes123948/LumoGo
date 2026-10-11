@@ -94,7 +94,7 @@ struct FavoritesView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
             .fileExporter(isPresented: $exporting, document: JSONFile(data: FavoritesStore.exportJson()), contentType: .json, defaultFilename: "osmnav_favoriten") { result in
-                if case .success = result { model.showToast("Favoriten exportiert.") }
+                if case .success = result { model.showToast(String(localized: "Favoriten exportiert.")) }
             }
             .fileImporter(isPresented: Binding(get: { importKind != nil }, set: { if !$0 { importKind = nil } }),
                           allowedContentTypes: importKind == .gpx ? Self.gpxTypes + [.data] : [.json]) { result in
@@ -104,20 +104,20 @@ struct FavoritesView: View {
                 let access = url.startAccessingSecurityScopedResource()
                 defer { if access { url.stopAccessingSecurityScopedResource() } }
                 guard let data = try? Data(contentsOf: url) else {
-                    model.showToast("Datei konnte nicht gelesen werden.")
+                    model.showToast(String(localized: "Datei konnte nicht gelesen werden."))
                     return
                 }
                 if kind == .gpx {
                     if model.importGPX(data, fileName: url.lastPathComponent) {
                         dismiss()
                     } else {
-                        model.showToast("Keine GPX-Tour mit Wegpunkten gefunden.")
+                        model.showToast(String(localized: "Keine GPX-Tour mit Wegpunkten gefunden."))
                     }
                 } else if let count = try? FavoritesStore.importJson(data) {
                     favorites = FavoritesStore.list()
-                    model.showToast("\(count) Favoriten importiert.")
+                    model.showToast(String(localized: "\(count) Favoriten importiert."))
                 } else {
-                    model.showToast("Import fehlgeschlagen.")
+                    model.showToast(String(localized: "Import fehlgeschlagen."))
                 }
             }
             .alert("Route speichern", isPresented: $savingRoute) {

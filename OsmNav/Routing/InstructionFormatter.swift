@@ -5,6 +5,7 @@ import Foundation
 enum InstructionFormatter {
 
     static func format(_ step: OsrmStep) -> String {
+        if AppLanguage.isEnglish { return EnglishInstructions.format(step) }
         let m = step.maneuver
         let road = step.name.trimmingCharacters(in: .whitespaces).isEmpty ? "der Straße" : step.name
 
@@ -34,6 +35,7 @@ enum InstructionFormatter {
      * bzw. "Jetzt" kombiniert, siehe [AnnouncementPlanner]. Bei "arrive" ein vollständiger Satzteil.
      */
     static func action(_ step: OsrmStep, includeDestinations: Bool = true) -> String {
+        if AppLanguage.isEnglish { return EnglishInstructions.action(step, includeDestinations: includeDestinations) }
         let m = step.maneuver
         let hasName = !step.name.trimmingCharacters(in: .whitespaces).isEmpty
         let onto = hasName ? " auf \(step.name)" : ""

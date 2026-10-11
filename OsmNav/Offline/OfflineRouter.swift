@@ -7,9 +7,9 @@ enum OfflineRoutingError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noData: return "Für dieses Gebiet sind keine Offline-Routingdaten heruntergeladen."
-        case .notOnRoadNetwork: return "Start oder Ziel liegt nicht in der Nähe einer offline verfügbaren Straße."
-        case .noRoute: return "Offline wurde keine Verbindung gefunden (evtl. liegt die Strecke teilweise außerhalb der heruntergeladenen Gebiete)."
+        case .noData: return String(localized: "Für dieses Gebiet sind keine Offline-Routingdaten heruntergeladen.")
+        case .notOnRoadNetwork: return String(localized: "Start oder Ziel liegt nicht in der Nähe einer offline verfügbaren Straße.")
+        case .noRoute: return String(localized: "Offline wurde keine Verbindung gefunden (evtl. liegt die Strecke teilweise außerhalb der heruntergeladenen Gebiete).")
         }
     }
 }
@@ -73,8 +73,13 @@ actor OfflineRouter {
 
     /** Offline-"Snap to road" für den freien Modus (Ersatz für OSRMs nearest-Dienst). */
     func nearestRoadPoint(_ point: LatLon) -> LatLon? {
-        guard let g = try? graph(covering: [point]) else { return nil }
-        return nearestEdge(g, point, .car, maxRings: 1)?.point
+        nearestRoad(point)?.point
+    }
+
+    /** Nächste Straße im Offline-Straßennetz: Punkt + Name (sonst Nummer, z.B. „B 170“). */
+    func nearestRoad(_ point: LatLon) -> (point: LatLon, name: String)? {
+        guard let g = try? graph(covering: [point]), let snap = nearestEdge(g, point, .car, maxRings: 1) else { return nil }
+        return (snap.point, g.displayName(way: Int(g.edgeWay[snap.edge])))
     }
 
     // MARK: - Einrasten

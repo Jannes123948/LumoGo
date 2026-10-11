@@ -8,9 +8,9 @@ enum RoutingProfile: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .car: return "Auto"
-        case .bike: return "Fahrrad"
-        case .foot: return "Zu Fuß"
+        case .car: return String(localized: "Auto")
+        case .bike: return String(localized: "Fahrrad")
+        case .foot: return String(localized: "Zu Fuß")
         }
     }
 
@@ -111,11 +111,11 @@ enum NearbyCategory: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .fuel: return "Tankstelle"
-        case .parking: return "Parkplatz"
-        case .charging: return "Ladesäule"
-        case .restArea: return "Rastplatz"
-        case .fastFood: return "Fast Food"
+        case .fuel: return String(localized: "Tankstelle")
+        case .parking: return String(localized: "Parkplatz")
+        case .charging: return String(localized: "Ladesäule")
+        case .restArea: return String(localized: "Rastplatz")
+        case .fastFood: return String(localized: "Fast Food")
         }
     }
 
@@ -155,7 +155,17 @@ final class RoadSnapper {
     private var lastSnappedPoint: LatLon?
     /** Rohposition, für die [lastSnappedPoint] berechnet wurde. */
     private var lastSnappedFor: LatLon?
+    private var lastRoadName = ""
     private var fetchInProgress = false
+
+    /** Name der Straße, auf der man gerade ist (Namensleiste ohne Navigation); nil = unbekannt/unbenannt. */
+    func roadName(near raw: LatLon) -> String? {
+        guard let base = lastSnappedFor, GeoUtils.distanceMeters(raw, base) < 60, !lastRoadName.isEmpty else { return nil }
+        return lastRoadName
+    }
+
+    /** Nur Straße/Namen aktualisieren, ohne die Position einzurasten (Einrasten ausgeschaltet). */
+    func observe(_ raw: LatLon) { maybeRefresh(raw) }
 
     /**
      * Überträgt die zuletzt ermittelte Korrektur (Versatz zur Straße) auf die AKTUELLE Position,
@@ -174,6 +184,7 @@ final class RoadSnapper {
         lastSnappedPoint = nil
         lastSnappedFor = nil
         lastQueriedPoint = nil
+        lastRoadName = ""
     }
 
     private func maybeRefresh(_ raw: LatLon) {
@@ -186,13 +197,15 @@ final class RoadSnapper {
         lastQueriedPoint = raw
         fetchInProgress = true
         Task {
-            if let snapped = try? await OsrmClient.getNearestRoadPoint(raw) {
-                lastSnappedPoint = snapped
+            if let road = try? await OsrmClient.getNearestRoad(raw) {
+                lastSnappedPoint = road.point
                 lastSnappedFor = raw
-            } else if let snapped = await OfflineRouter.shared.nearestRoadPoint(raw) {
+                lastRoadName = road.name
+            } else if let road = await OfflineRouter.shared.nearestRoad(raw) {
                 // Kein Internet: auf das heruntergeladene Straßennetz einrasten.
-                lastSnappedPoint = snapped
+                lastSnappedPoint = road.point
                 lastSnappedFor = raw
+                lastRoadName = road.name
             }
             fetchInProgress = false
         }

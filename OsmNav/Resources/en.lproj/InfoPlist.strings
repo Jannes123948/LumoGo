@@ -1,0 +1,3 @@
+/* Englische Texte aus der Info.plist (Systemdialoge). */
+"CFBundleDisplayName" = "LumoGo";
+"NSLocationWhenInUseUsageDescription" = "LumoGo needs your location to show it on the map and to guide you to your destination.";

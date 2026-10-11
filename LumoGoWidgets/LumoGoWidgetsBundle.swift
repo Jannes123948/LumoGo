@@ -4,6 +4,11 @@ import WidgetKit
 /** Widget-Erweiterung von LumoGo: Navigations-Widget, Navigation auf Sperrbildschirm/Dynamic Island, Schnellzugriff. */
 @main
 struct LumoGoWidgetsBundle: WidgetBundle {
+    init() {
+        // Sprache der App übernehmen (wirkt beim nächsten Start der Erweiterung).
+        AppLanguage.syncFromAppGroup()
+    }
+
     var body: some Widget {
         NavigationWidget()
         QuickActionsWidget()

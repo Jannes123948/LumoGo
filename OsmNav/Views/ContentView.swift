@@ -16,6 +16,13 @@ struct ContentView: View {
     /** Pfeil steht fest unten im Bild → Namensleiste direkt darunter; sonst über der Ankunftsleiste. */
     private var roadNameUnderPuck: Bool { settings.navPuckLow && model.followEnabled }
 
+    /** Namensleiste ohne Navigation: nur solange die Karte dem Pfeil folgt (Pfeil in der Bildmitte). */
+    private var freeRoadName: String? {
+        guard !model.navigationActive, settings.roadNameFreeMode, model.followEnabled, model.waypoints.isEmpty,
+              !model.showSearchResults else { return nil }
+        return model.freeRoadName
+    }
+
     var body: some View {
         ZStack {
             MapViewRepresentable(
@@ -110,6 +117,19 @@ struct ContentView: View {
                 .transition(.opacity)
             }
 
+            // Ohne Navigation steht der Pfeil beim Folgen in der Bildmitte.
+            if let road = freeRoadName {
+                GeometryReader { geo in
+                    RoadNamePill(name: road)
+                        .frame(maxWidth: geo.size.width - 120)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .position(x: geo.size.width / 2, y: geo.size.height / 2 + MapController.puckLabelOffset + 18)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
+
             if let toast = model.toast {
                 VStack {
                     Spacer()
@@ -132,6 +152,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: model.motorwayAhead.isEmpty)
         .animation(.easeInOut(duration: 0.2), value: model.deadReckoning)
         .animation(.easeInOut(duration: 0.2), value: model.parkedCar == nil)
+        .animation(.easeInOut(duration: 0.2), value: freeRoadName)
         .onAppear {
             model.start()
             model.checkSharedInbox()

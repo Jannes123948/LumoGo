@@ -19,15 +19,15 @@ struct TripDetailView: View {
                 }
             }
             Section {
-                row("Ziel", trip.destinationName)
-                row("Datum", trip.timestamp.formatted(date: .complete, time: .shortened))
-                row("Dauer", FormatUtils.formatDuration(trip.durationSeconds))
-                row("Gefahren", FormatUtils.formatDistance(trip.drivenMeters ?? trip.distanceMeters))
+                row(String(localized: "Ziel"), trip.destinationName)
+                row(String(localized: "Datum"), trip.timestamp.formatted(date: .complete, time: .shortened))
+                row(String(localized: "Dauer"), FormatUtils.formatDuration(trip.durationSeconds))
+                row(String(localized: "Gefahren"), FormatUtils.formatDistance(trip.drivenMeters ?? trip.distanceMeters))
                 if trip.drivenMeters != nil {
-                    row("Geplant", FormatUtils.formatDistance(trip.distanceMeters))
+                    row(String(localized: "Geplant"), FormatUtils.formatDistance(trip.distanceMeters))
                 }
                 if let avg = trip.averageKmh { row("Ø Geschwindigkeit", "\(Int(avg.rounded())) km/h") }
-                if let max = trip.maxKmh, max > 0 { row("Höchstgeschwindigkeit", "\(Int(max.rounded())) km/h") }
+                if let max = trip.maxKmh, max > 0 { row(String(localized: "Höchstgeschwindigkeit"), String(localized: "\(Int(max.rounded())) km/h")) }
             }
             Section {
                 if let gpxFile {

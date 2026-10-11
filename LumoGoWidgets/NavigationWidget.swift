@@ -51,9 +51,9 @@ struct NavProvider: TimelineProvider {
     }
 
     static let sample = NavWidgetState(
-        active: true, distanceText: "300 m", instruction: "Rechts abbiegen auf Hauptstraße",
-        symbolName: "arrow.turn.up.right", symbolRotation: 0, thenInstruction: "Links halten auf B 6",
-        etaText: "17:42", remainingText: "12 km · 18 Min.", destination: "Zuhause", updatedAt: Date(),
+        active: true, distanceText: "300 m", instruction: String(localized: "Rechts abbiegen auf Hauptstraße"),
+        symbolName: "arrow.turn.up.right", symbolRotation: 0, thenInstruction: String(localized: "Links halten auf B 6"),
+        etaText: "17:42", remainingText: String(localized: "12 km · 18 Min."), destination: String(localized: "Zuhause"), updatedAt: Date(),
         backgroundHex: 0x1B5E20, textHex: 0xFFFFFF, routeHex: 0x2962FF,
         route: [[0, -120], [0, 0], [0, 300], [8, 330], [180, 340], [420, 360]], maneuver: [0, 300]
     )

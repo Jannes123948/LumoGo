@@ -43,8 +43,8 @@ enum ParkingStore {
         guard granted else { return false }
         center.removePendingNotificationRequests(withIdentifiers: [reminderId])
         let content = UNMutableNotificationContent()
-        content.title = "Parkzeit läuft ab"
-        content.body = address.map { "Dein Auto steht: \($0)" } ?? "Zeit, zum Auto zurückzugehen."
+        content.title = String(localized: "Parkzeit läuft ab")
+        content.body = address.map { String(localized: "Dein Auto steht: \($0)") } ?? String(localized: "Zeit, zum Auto zurückzugehen.")
         content.sound = .default
         let seconds = max(date.timeIntervalSinceNow, 1)
         let request = UNNotificationRequest(identifier: reminderId, content: content,

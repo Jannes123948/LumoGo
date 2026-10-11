@@ -16,7 +16,7 @@ struct SharedPlace: Codable, Equatable {
     var hasCoordinate: Bool { latitude != nil && longitude != nil }
 
     var displayName: String {
-        name ?? query ?? latitude.flatMap { lat in longitude.map { String(format: "%.5f, %.5f", lat, $0) } } ?? "Ort"
+        name ?? query ?? latitude.flatMap { lat in longitude.map { String(format: "%.5f, %.5f", lat, $0) } } ?? String(localized: "Ort")
     }
 }
 

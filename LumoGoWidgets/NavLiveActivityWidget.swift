@@ -19,13 +19,13 @@ struct NavLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 0) {
-                        Text(state.arrived ? "Da" : state.etaText).font(.headline).monospacedDigit()
+                        Text(state.arrived ? String(localized: "Da") : state.etaText).font(.headline).monospacedDigit()
                         Text("Ankunft").font(.caption2).foregroundStyle(.secondary)
                     }
                     .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(state.arrived ? "Angekommen" : state.distanceText)
+                    Text(state.arrived ? String(localized: "Angekommen") : state.distanceText)
                         .font(.title2.weight(.bold)).monospacedDigit()
                 }
                 DynamicIslandExpandedRegion(.bottom) {
@@ -40,7 +40,7 @@ struct NavLiveActivityWidget: Widget {
             } compactLeading: {
                 ManeuverSymbol(state: state, size: 16)
             } compactTrailing: {
-                Text(state.arrived ? "Da" : state.distanceText)
+                Text(state.arrived ? String(localized: "Da") : state.distanceText)
                     .font(.caption.weight(.semibold)).monospacedDigit()
                     .frame(maxWidth: 64)
             } minimal: {
@@ -62,7 +62,7 @@ private struct LockScreenNavView: View {
             ManeuverSymbol(state: state, size: 40)
                 .frame(width: 54)
             VStack(alignment: .leading, spacing: 2) {
-                Text(state.arrived ? "Angekommen" : state.distanceText)
+                Text(state.arrived ? String(localized: "Angekommen") : state.distanceText)
                     .font(.system(size: 28, weight: .bold)).monospacedDigit()
                 Text(state.arrived ? attributes.destinationName : state.instruction)
                     .font(.subheadline.weight(.medium)).lineLimit(2)

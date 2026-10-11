@@ -134,9 +134,10 @@ struct InstructionsSheet: View {
     /** „bei km 4,2 · dann 1,3 km“ — Position des Manövers auf der Route und Strecke bis zum nächsten. */
     private func subtitle(_ item: PreviewInstruction, isLast: Bool) -> String {
         let km = (item.startMeters / 100).rounded() / 10
-        let position = "bei km " + km.formatted(.number.precision(.fractionLength(1)).locale(Locale(identifier: "de_DE")))
+        let kmText = km.formatted(.number.precision(.fractionLength(1)).locale(AppLanguage.locale))
+        let position = String(localized: "bei km \(kmText)")
         guard !isLast, item.distance > 0 else { return position }
-        return position + " · dann " + FormatUtils.formatDistance(item.distance)
+        return String(localized: "\(position) · dann \(FormatUtils.formatDistance(item.distance))")
     }
 
     var body: some View {
@@ -202,12 +203,12 @@ struct RouteWeatherRow: View {
         if let wet = weather.firstWet {
             let probability = wet.precipitationProbability.map { " (\($0) %)" } ?? ""
             let km = Int((wet.alongMeters / 1000).rounded())
-            return km == 0 ? "Regen schon beim Start\(probability)" : "Regen ab ca. km \(km)\(probability)"
+            return km == 0 ? String(localized: "Regen schon beim Start\(probability)") : String(localized: "Regen ab ca. km \(km)\(probability)")
         }
         if let low = weather.minTemperature, let high = weather.maxTemperature, Int(high.rounded()) != Int(low.rounded()) {
-            return "Unterwegs trocken · \(Int(low.rounded()))–\(Int(high.rounded()))°"
+            return String(localized: "Unterwegs trocken · \(Int(low.rounded()))–\(Int(high.rounded()))°")
         }
-        return "Unterwegs trocken"
+        return String(localized: "Unterwegs trocken")
     }
 }
 

@@ -68,7 +68,7 @@ enum MotorwayInfo {
             // In Deutschland haben echte Ausfahrten eine Nummer — ohne Nummer ist es meist ein
             // Parkplatz/eine Rastanlage („Am Steinberg“); [mergeRestAreas] präzisiert das.
             if kind == .exit, junction.ref == nil { kind = .restArea }
-            let title = junction.name ?? (kind == .exit ? "Ausfahrt" : "Abzweig")
+            let title = junction.name ?? (kind == .exit ? String(localized: "Ausfahrt") : String(localized: "Abzweig"))
             // OSRMs Abfahrt-Manöver liegt am Ausfahrt-Knoten oder kurz dahinter.
             let ours = maneuvers.contains { $0 >= along - 50 && $0 <= along + 300 }
             return MotorwayPoi(id: "j\(junction.id)", kind: kind, title: title, ref: kind == .exit ? junction.ref : nil,
@@ -145,7 +145,7 @@ enum MotorwayInfo {
             }
             if added.contains(where: { abs($0.along - along) < 800 }) { continue }
             added.append(MotorwayPoi(id: place.id, kind: place.services ? .services : .restArea,
-                                     title: place.name ?? (place.services ? "Rastanlage" : "Parkplatz"), ref: nil, along: along))
+                                     title: place.name ?? (place.services ? String(localized: "Rastanlage") : String(localized: "Parkplatz")), ref: nil, along: along))
         }
         return (result + added).sorted { $0.along < $1.along }
     }

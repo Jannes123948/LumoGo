@@ -1,0 +1,182 @@
+{
+  "sourceLanguage": "de",
+  "strings": {
+    "Abbrechen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abbrechen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancel"
+          }
+        }
+      }
+    },
+    "Als Ziel in LumoGo": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Ziel in LumoGo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set as destination in LumoGo"
+          }
+        }
+      }
+    },
+    "Fertig": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        }
+      }
+    },
+    "Gespeichert — öffne jetzt LumoGo, der Ort wird dort übernommen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeichert — öffne jetzt LumoGo, der Ort wird dort übernommen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved — now open LumoGo, the place will be picked up there."
+          }
+        }
+      }
+    },
+    "Hier ist kein Ort erkennbar. Geteilt werden können Links aus Apple Karten, Google Maps und OpenStreetMap, Koordinaten oder Adressen.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hier ist kein Ort erkennbar. Geteilt werden können Links aus Apple Karten, Google Maps und OpenStreetMap, Koordinaten oder Adressen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No place found here. You can share links from Apple Maps, Google Maps and OpenStreetMap, coordinates or addresses."
+          }
+        }
+      }
+    },
+    "In LumoGo suchen": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In LumoGo suchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search in LumoGo"
+          }
+        }
+      }
+    },
+    "LumoGo": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LumoGo"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LumoGo"
+          }
+        }
+      }
+    },
+    "LumoGo konnte den Ort nicht übernehmen — beim Signieren fehlt die App Group „%@“ für die Erweiterung.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LumoGo konnte den Ort nicht übernehmen — beim Signieren fehlt die App Group „%@“ für die Erweiterung."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LumoGo couldn't take the place — the app group “%@” is missing from the extension's signing."
+          }
+        }
+      }
+    },
+    "Ort": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ort"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Place"
+          }
+        }
+      }
+    },
+    "Ort wird erkannt …": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ort wird erkannt …"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognizing place …"
+          }
+        }
+      }
+    },
+    "Wird in LumoGo gesucht": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird in LumoGo gesucht"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Will be searched in LumoGo"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

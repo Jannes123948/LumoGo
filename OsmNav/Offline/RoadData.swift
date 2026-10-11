@@ -261,8 +261,8 @@ enum OfflineRoadSource: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .tiles: return "Kartenkacheln (schnell)"
-        case .overpass: return "Overpass (genauer)"
+        case .tiles: return String(localized: "Kartenkacheln (schnell)")
+        case .overpass: return String(localized: "Overpass (genauer)")
         }
     }
 

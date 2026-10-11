@@ -22,7 +22,7 @@ struct ParkingSheet: View {
                                 .frame(width: 52, height: 52)
                                 .background(Color(red: 0.08, green: 0.4, blue: 0.85), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(car.address ?? "Adresse wird gesucht …")
+                                Text(car.address ?? String(localized: "Adresse wird gesucht …"))
                                     .font(.headline)
                                     .foregroundStyle(car.address == nil ? .secondary : .primary)
                                 Text(parkedSince(car.date))
@@ -125,19 +125,19 @@ struct ParkingSheet: View {
         let minutes = Int(Date().timeIntervalSince(date) / 60)
         let time = date.formatted(date: Calendar.current.isDateInToday(date) ? .omitted : .abbreviated, time: .shortened)
         let ago: String
-        if minutes < 1 { ago = "gerade eben" }
-        else if minutes < 60 { ago = "vor \(minutes) min" }
-        else if minutes < 24 * 60 { ago = "vor \(minutes / 60) h \(minutes % 60) min" }
-        else { ago = "vor \(minutes / (24 * 60)) Tagen" }
-        return "Geparkt \(time) · \(ago)"
+        if minutes < 1 { ago = String(localized: "gerade eben") }
+        else if minutes < 60 { ago = String(localized: "vor \(minutes) min") }
+        else if minutes < 24 * 60 { ago = String(localized: "vor \(minutes / 60) h \(minutes % 60) min") }
+        else { ago = String(localized: "vor \(minutes / (24 * 60)) Tagen") }
+        return String(localized: "Geparkt \(time) · \(ago)")
     }
 
     private func distanceText(_ car: ParkedCar) -> String? {
         guard let position = model.currentPosition else { return nil }
         let meters = GeoUtils.distanceMeters(position, car.point)
-        if meters < 25 { return "Du bist am Auto" }
+        if meters < 25 { return String(localized: "Du bist am Auto") }
         // Gehtempo ≈ 4,5 km/h, Umwege grob mit 1,3 eingerechnet.
         let minutes = max(1, Int((meters * 1.3 / 1.25 / 60).rounded()))
-        return "\(FormatUtils.formatDistance(meters)) Luftlinie · ca. \(minutes) min zu Fuß"
+        return String(localized: "\(FormatUtils.formatDistance(meters)) Luftlinie · ca. \(minutes) min zu Fuß")
     }
 }

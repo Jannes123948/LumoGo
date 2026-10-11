@@ -7,9 +7,9 @@ enum FuelType: String, CaseIterable, Identifiable, Codable {
 
     var label: String {
         switch self {
-        case .e5: return "Super E5"
-        case .e10: return "Super E10"
-        case .diesel: return "Diesel"
+        case .e5: return String(localized: "Super E5")
+        case .e10: return String(localized: "Super E10")
+        case .diesel: return String(localized: "Diesel")
         }
     }
 }
@@ -27,7 +27,7 @@ struct FuelStation: Identifiable, Hashable {
 
     /** „1,739 €“ — Tankerkönig liefert drei Nachkommastellen wie die Preistafeln. */
     var priceText: String? {
-        price.map { String(format: "%.3f €", $0).replacingOccurrences(of: ".", with: ",") }
+        price.map { FormatUtils.decimal($0, digits: 3) + " €" }
     }
 }
 
@@ -56,7 +56,7 @@ enum TankerkoenigClient {
         ])
         let data = try await HTTP.data(session, for: URLRequest(url: url))
         guard let response = try? JSONDecoder().decode(Response.self, from: data) else { throw AppError.parse }
-        guard response.ok else { throw AppError.server(response.message ?? "Tankerkönig: unbekannter Fehler") }
+        guard response.ok else { throw AppError.server(response.message ?? String(localized: "Tankerkönig: unbekannter Fehler")) }
         return (response.stations ?? []).map { s in
             FuelStation(
                 id: s.id,
