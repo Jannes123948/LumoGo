@@ -69,6 +69,7 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
     private static let arrowHeadIcon = "maneuver-head"
     private static let favoritesSourceId = "favorites"
     private static let favoritesLayerId = "favorites-layer"
+    private static let favoritesLabelLayerId = "favorites-label-layer"
     private static let parkedSourceId = "parked-car"
     private static let parkedLayerId = "parked-car-layer"
     private static let parkedIcon = "parked-car-icon"
@@ -411,17 +412,23 @@ final class MapController: NSObject, MLNMapViewDelegate, UIGestureRecognizerDele
         let favoritesLayer = MLNSymbolStyleLayer(identifier: Self.favoritesLayerId, source: favoritesSource)
         favoritesLayer.iconImageName = NSExpression(forKeyPath: "icon")
         favoritesLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
-        favoritesLayer.text = NSExpression(format: "TERNARY($zoomLevel >= 13, name, '')")
-        // Schrift von OpenFreeMap (auch in den Raster-Stilen hinterlegt, siehe „glyphs“).
-        favoritesLayer.textFontNames = NSExpression(forConstantValue: ["Noto Sans Regular"])
-        favoritesLayer.textFontSize = NSExpression(forConstantValue: 12)
-        favoritesLayer.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0, dy: 1.6)))
-        favoritesLayer.textAnchor = NSExpression(forConstantValue: "top")
-        favoritesLayer.textColor = NSExpression(forConstantValue: UIColor(white: 0.15, alpha: 1))
-        favoritesLayer.textHaloColor = NSExpression(forConstantValue: UIColor.white)
-        favoritesLayer.textHaloWidth = NSExpression(forConstantValue: 1.5)
-        favoritesLayer.textOptional = NSExpression(forConstantValue: true)
         style.addLayer(favoritesLayer)
+        // Namen als eigene Ebene erst ab Zoom 13 (minimumZoomLevel). NICHT per `$zoomLevel` in einem
+        // TERNARY-Ausdruck: Zoom darf in MapLibre nur ganz außen in step/interpolate stehen, sonst wirft
+        // der Stil eine Exception und die App stürzt beim Start ab (passiert in 0.0.9).
+        let favoritesLabels = MLNSymbolStyleLayer(identifier: Self.favoritesLabelLayerId, source: favoritesSource)
+        favoritesLabels.minimumZoomLevel = 13
+        favoritesLabels.text = NSExpression(forKeyPath: "name")
+        // Schrift von OpenFreeMap (auch in den Raster-Stilen hinterlegt, siehe „glyphs“).
+        favoritesLabels.textFontNames = NSExpression(forConstantValue: ["Noto Sans Regular"])
+        favoritesLabels.textFontSize = NSExpression(forConstantValue: 12)
+        favoritesLabels.textOffset = NSExpression(forConstantValue: NSValue(cgVector: CGVector(dx: 0, dy: 1.6)))
+        favoritesLabels.textAnchor = NSExpression(forConstantValue: "top")
+        favoritesLabels.textColor = NSExpression(forConstantValue: UIColor(white: 0.15, alpha: 1))
+        favoritesLabels.textHaloColor = NSExpression(forConstantValue: UIColor.white)
+        favoritesLabels.textHaloWidth = NSExpression(forConstantValue: 1.5)
+        favoritesLabels.textOptional = NSExpression(forConstantValue: true)
+        style.addLayer(favoritesLabels)
 
         // Geparktes Auto.
         style.setImage(Self.renderParkedCar(), forName: Self.parkedIcon)
