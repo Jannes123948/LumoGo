@@ -21,6 +21,8 @@ struct OsmNavApp: App {
         // Siri kennt die Favoriten-Namen („Navigiere mit LumoGo zu Arbeit“) — bei Änderungen neu melden.
         FavoritesStore.onChange = { LumoGoShortcuts.updateAppShortcutParameters() }
         LumoGoShortcuts.updateAppShortcutParameters()
+        // iCloud-Sync (Favoriten, Routen, Fahrtenbuch, Parkplatz), falls eingeschaltet.
+        CloudSync.start()
     }
 
     var body: some Scene {

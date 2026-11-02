@@ -99,6 +99,104 @@ struct WalkToCarIntent: AppIntent {
     }
 }
 
+/** „Navigation beenden“ — ohne die App zu öffnen. */
+struct StopNavigationIntent: AppIntent {
+    static var title: LocalizedStringResource = "Navigation beenden"
+    static var description = IntentDescription("Beendet die laufende Navigation.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let stopped = AppModel.current?.stopNavigationBySiri() ?? false
+        return .result(dialog: "\(stopped ? String(localized: "Navigation beendet.") : String(localized: "Gerade läuft keine Navigation."))")
+    }
+}
+
+/** „Wie geht es weiter?“ — nächste Anweisung mit Entfernung. */
+struct NextInstructionIntent: AppIntent {
+    static var title: LocalizedStringResource = "Wie geht es weiter?"
+    static var description = IntentDescription("Sagt die nächste Navigationsanweisung.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let text = AppModel.current?.nextInstructionSentence() ?? String(localized: "Gerade läuft keine Navigation.")
+        return .result(dialog: "\(text)")
+    }
+}
+
+/** Was „Markiere …“ setzen kann (nur Arten mit Warnung auf der Route). */
+enum MarkerKindChoice: String, AppEnum {
+    case speedCamera, roadworks, danger
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Markierung"
+    static var caseDisplayRepresentations: [MarkerKindChoice: DisplayRepresentation] = [
+        .speedCamera: "Blitzer",
+        .roadworks: "Baustelle",
+        .danger: "Gefahrenstelle"
+    ]
+
+    var kind: MarkerKind {
+        switch self {
+        case .speedCamera: return .speedCamera
+        case .roadworks: return .roadworks
+        case .danger: return .danger
+        }
+    }
+}
+
+/** „Markiere Blitzer“ — setzt eine Markierung am aktuellen Standort (z.B. freihändig beim Fahren). */
+struct AddMarkerIntent: AppIntent {
+    static var title: LocalizedStringResource = "Hier markieren"
+    static var description = IntentDescription("Setzt am aktuellen Standort eine Markierung (Blitzer, Baustelle, Gefahrenstelle), die dich auf deiner Route vorher warnt.")
+    static var openAppWhenRun = false
+
+    @Parameter(title: "Art")
+    var kind: MarkerKindChoice
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Markiere \(\.$kind) hier")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let model = AppModel.current else {
+            return .result(dialog: "\(String(localized: "LumoGo ist gerade nicht bereit."))")
+        }
+        let done = model.addMarker(kind.kind)
+        return .result(dialog: "\(done ? String(localized: "\(kind.kind.label) markiert.") : String(localized: "Standort noch nicht verfügbar."))")
+    }
+}
+
+/** Ansagen ein-/ausschalten (Kurzbefehle-App). */
+struct ToggleVoiceIntent: AppIntent {
+    static var title: LocalizedStringResource = "Ansagen ein-/ausschalten"
+    static var description = IntentDescription("Schaltet die Sprachansagen der Navigation stumm oder wieder ein.")
+    static var openAppWhenRun = false
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let settings = AppModel.current?.settings else {
+            return .result(dialog: "\(String(localized: "LumoGo ist gerade nicht bereit."))")
+        }
+        settings.voiceEnabled.toggle()
+        return .result(dialog: "\(settings.voiceEnabled ? String(localized: "Ansagen sind wieder an.") : String(localized: "Ansagen sind aus."))")
+    }
+}
+
+/** Tankstelle & Co. auf der Route suchen (Kurzbefehle-App). */
+struct SearchAlongRouteIntent: AppIntent {
+    static var title: LocalizedStringResource = "Auf der Route suchen"
+    static var description = IntentDescription("Öffnet die Suche entlang der aktuellen Route (Tankstellen, Rastplätze, Essen …).")
+    static var openAppWhenRun = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        AppModel.current?.openAlongRoute()
+        return .result()
+    }
+}
+
 /** Ein Favorit als Auswahl für Siri/Kurzbefehle (gelesen aus [FavoritesStore]). */
 struct FavoriteEntity: AppEntity {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Favorit"
@@ -217,6 +315,36 @@ struct LumoGoShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Mein Auto",
             systemImageName: "car.fill"
+        )
+        AppShortcut(
+            intent: StopNavigationIntent(),
+            phrases: [
+                "Beende die Navigation mit \(.applicationName)",
+                "\(.applicationName) Navigation beenden",
+                "\(.applicationName) stopp"
+            ],
+            shortTitle: "Navigation beenden",
+            systemImageName: "xmark.circle.fill"
+        )
+        AppShortcut(
+            intent: NextInstructionIntent(),
+            phrases: [
+                "Wie geht es weiter mit \(.applicationName)",
+                "\(.applicationName) wie geht es weiter",
+                "\(.applicationName) nächste Anweisung"
+            ],
+            shortTitle: "Wie geht es weiter?",
+            systemImageName: "arrow.turn.up.right"
+        )
+        AppShortcut(
+            intent: AddMarkerIntent(),
+            phrases: [
+                "Markiere mit \(.applicationName) \(\.$kind)",
+                "\(.applicationName) markiere \(\.$kind)",
+                "\(.applicationName) \(\.$kind) hier"
+            ],
+            shortTitle: "Hier markieren",
+            systemImageName: "mappin.and.ellipse"
         )
         AppShortcut(
             intent: WalkToCarIntent(),

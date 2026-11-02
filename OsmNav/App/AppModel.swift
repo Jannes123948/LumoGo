@@ -123,6 +123,15 @@ final class AppModel: ObservableObject {
     // Gefahrenstellen
     @Published private(set) var hazardAhead: HazardAhead?
     private var routeHazards: [HazardOnRoute] = []
+    private var markerHazards: [HazardOnRoute] = []
+    private var announcedExitHints = Set<String>()
+    /** Reine Fahrzeit seit Navigationsstart (für die Pausen-Erinnerung). */
+    private var movingSeconds = 0.0
+    private var breaksAnnounced = 0
+    private var lastMoveAt = Date()
+    private var lastBreakTick: Date?
+    /** Tipp auf eine eigene Markierung (Aktionen: navigieren, löschen). */
+    @Published var selectedMarker: MapMarker?
     private var curveHazards: [HazardOnRoute] = []
     private var announcedHazards = Set<String>()
 
@@ -600,11 +609,12 @@ final class AppModel: ObservableObject {
         Task {
             defer { routeLoading = false }
             do {
-                let result = try await RouteFetcher.getRoutes(request.points, alternatives: alternatives, profile: settings.routingProfile)
+                let result = try await RouteFetcher.getRoutes(request.points, alternatives: alternatives, profile: settings.routingProfile, avoid: activeTour == nil ? settings.avoidOptions : .none)
                 routeOptions = result.routes.map(request.finish)
                 selectRoute(0)
                 fitRouteInView(routeOptions[0])
                 if result.usedOfflineRouting { showToast(String(localized: "Offline-Route berechnet.")) }
+                if let note = result.avoidNote { showToast(note) }
                 if startNavigationAfter { startNavigation() }
                 afterSuccess?()
             } catch let error as OfflineRoutingError {
@@ -792,6 +802,10 @@ final class AppModel: ObservableObject {
         tracker = newTracker
         navigationActive = true
         navigationStart = Date()
+        movingSeconds = 0
+        breaksAnnounced = 0
+        lastMoveAt = Date()
+        lastBreakTick = nil
         trackPoints = []
         trackMaxKmh = 0
         followEnabled = true
@@ -1094,10 +1108,11 @@ final class AppModel: ObservableObject {
         motorwayPois = []
         restAreaPlaces = []
         routeHazards = []
+        updateMarkerHazards(route)
         updateCurveHazards(route)
         guard !route.nodeLegs.isEmpty else { return }
         let routeId = route.id
-        let includeHazards = settings.hazardWarnings
+        let includeHazards = settings.hazardWarnings || settings.speedCameraWarnings
         speedLimitTask = Task {
             await SpeedLimitMap.load(nodeLegs: route.nodeLegs, geometry: route.geometry, includeHazards: includeHazards) { [weak self] segments, junctions, hazards in
                 guard let self, self.navigationActive, self.lastRoute?.id == routeId else { return }
@@ -1134,6 +1149,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /** Eigene Markierungen (Blitzer, Baustelle, Gefahr) auf der Route — geht auch offline. */
+    private func updateMarkerHazards(_ route: OsrmRoute) {
+        let hazards = MarkerStore.list().compactMap { marker in
+            marker.kind.hazardKind.map { Hazard(id: "marker-\(marker.id)", kind: $0, point: marker.point) }
+        }
+        markerHazards = hazards.isEmpty ? [] : HazardDetector.project(hazards, line: route.geometry, cumulative: cumulativeDistances(route), maxOffset: 40)
+    }
+
     /** Scharfe Kurven aus der Routenlinie (geht auch offline). */
     private func updateCurveHazards(_ route: OsrmRoute) {
         guard settings.curveWarnings, let tracker else {
@@ -1149,12 +1172,14 @@ final class AppModel: ObservableObject {
      * Kurven nur ab 50 km/h (in der Stadt sind enge Kurven normal), Schulen nur werktags tagsüber.
      */
     private func updateHazards(_ current: LatLon, _ tracker: RouteProgressTracker, speedMps: Double) {
-        guard settings.hazardWarnings || settings.curveWarnings else {
+        guard settings.hazardWarnings || settings.curveWarnings || settings.speedCameraWarnings else {
             if hazardAhead != nil { hazardAhead = nil }
             return
         }
         let traveled = tracker.traveled(current)
-        let candidates = (settings.hazardWarnings ? routeHazards : []) + (settings.curveWarnings && speedMps >= 13.9 ? curveHazards : [])
+        let cameras = settings.speedCameraWarnings, others = settings.hazardWarnings
+        let candidates = (routeHazards + markerHazards).filter { $0.kind == .speedCamera ? cameras : others }
+            + (settings.curveWarnings && speedMps >= 13.9 ? curveHazards : [])
         let next = candidates
             .filter { $0.along - traveled > 15 && $0.along - traveled <= 400 && $0.kind.isRelevant() }
             .min { $0.along < $1.along }
@@ -1173,6 +1198,7 @@ final class AppModel: ObservableObject {
     private func resetGuidanceExtras() {
         hazardAhead = nil
         announcedHazards = []
+        announcedExitHints = []
         junction = nil
         junctionSticky = nil
         arrowManeuverIndex = nil
@@ -1204,6 +1230,48 @@ final class AppModel: ObservableObject {
             ahead = MotorwayInfo.upcoming(motorwayPois, traveled: tracker.traveled(current))
         }
         if ahead != motorwayAhead { motorwayAhead = ahead }
+        if !ahead.isEmpty { updateExitHint(current, tracker) }
+    }
+
+    /** Vor der eigenen Ausfahrt: einmal ≈ 1,5 km vorher und einmal kurz davor die Spur ansagen. */
+    private func updateExitHint(_ current: LatLon, _ tracker: RouteProgressTracker) {
+        guard settings.exitLaneHint,
+              let exit = motorwayPois.filter({ $0.isOurExit && $0.along > tracker.traveled(current) }).min(by: { $0.along < $1.along }),
+              exit.kind == .exit || exit.kind == .interchange else { return }
+        let distance = exit.along - tracker.traveled(current)
+        let near = distance <= 350 && distance > 60
+        guard near || (distance <= 1500 && distance > 800),
+              announcedExitHints.insert("\(exit.id)-\(near)").inserted else { return }
+        say(MotorwayInfo.exitHintSentence(exit, left: MotorwayInfo.exitIsOnLeft(exit, tracker: tracker), near: near))
+    }
+
+    /** Pausen-Erinnerung: nach [AppSettings.breakReminderMinutes] reiner Fahrzeit (Stillstand > 15 min setzt zurück). */
+    private func updateBreakReminder() {
+        guard navigationActive, settings.breakReminderMinutes > 0 else {
+            lastBreakTick = nil
+            return
+        }
+        let now = Date()
+        defer { lastBreakTick = now }
+        guard let last = lastBreakTick else { return }
+        if (speedKmh ?? 0) > 5 {
+            movingSeconds += min(now.timeIntervalSince(last), 5)
+            lastMoveAt = now
+        } else if now.timeIntervalSince(lastMoveAt) > 15 * 60 {
+            movingSeconds = 0
+            breaksAnnounced = 0
+        }
+        guard movingSeconds >= Double(settings.breakReminderMinutes * 60 * (breaksAnnounced + 1)) else { return }
+        breaksAnnounced += 1
+        var text = String(localized: "Du fährst seit \(FormatUtils.formatDuration((movingSeconds / 60).rounded() * 60)). Zeit für eine Pause.")
+        if let tracker, let position = lastDisplayPosition {
+            let traveled = tracker.traveled(position)
+            if let rest = motorwayPois.filter({ ($0.kind == .services || $0.kind == .restArea) && $0.along > traveled + 500 }).min(by: { $0.along < $1.along }) {
+                text += " " + String(localized: "Nächste Rastmöglichkeit: \(rest.title) in \(FormatUtils.formatDistance(rest.along - traveled)).")
+            }
+        }
+        say(text)
+        showToast(text)
     }
 
     private func startTunnelWatch() {
@@ -1287,11 +1355,13 @@ final class AppModel: ObservableObject {
 
     private func updateSpeed(_ position: LatLon, _ loc: CLLocation) {
         updateCurrentSpeed(loc)
+        updateBreakReminder()
         speedLimit = speedLimits.limit(at: position)
         // Kleine Toleranz: GPS misst die echte Geschwindigkeit, Tachos zeigen eher etwas mehr an.
         let over: Bool
         if let limit = speedLimit?.kmhValue, let kmh = speedKmh {
-            over = kmh > limit + settings.speedTolerance
+            let motorway = speedLimits.peekSegment(at: position)?.motorway == true
+            over = kmh > limit + settings.tolerance(limit: limit, motorway: motorway)
         } else {
             over = false
         }
@@ -1335,7 +1405,7 @@ final class AppModel: ObservableObject {
         Task {
             defer { reroutingInProgress = false }
             do {
-                let result = try await RouteFetcher.getRoutes(request.points, alternatives: false, profile: settings.routingProfile)
+                let result = try await RouteFetcher.getRoutes(request.points, alternatives: false, profile: settings.routingProfile, avoid: activeTour == nil ? settings.avoidOptions : .none)
                 guard navigationActive, let raw = result.routes.first else { return }
                 let route = request.finish(raw)
                 lastRoute = route
@@ -1540,11 +1610,43 @@ final class AppModel: ObservableObject {
 
     /** Favoriten-Pins auf der Karte (Einstellung „Favoriten auf der Karte“). */
     func refreshFavoriteMarkers() {
-        map.setFavorites(settings.favoritesOnMap ? FavoritesStore.list() : [])
+        map.setFavorites((settings.favoritesOnMap ? FavoritesStore.list() : []) + MarkerStore.list().map(\.asMapPin))
+    }
+
+    // MARK: - Eigene Markierungen
+
+    /** Markierung setzen — Standard: am aktuellen Standort (z.B. „Blitzer hier“ während der Fahrt). */
+    @discardableResult
+    func addMarker(_ kind: MarkerKind, note: String = "", at point: LatLon? = nil) -> Bool {
+        guard let point = point ?? currentPosition else {
+            showToast(String(localized: "Standort noch nicht verfügbar."))
+            return false
+        }
+        MarkerStore.add(MapMarker(id: UUID().uuidString, kind: kind, note: note, lat: point.latitude, lon: point.longitude, createdAt: Date()))
+        refreshFavoriteMarkers()
+        if let route = lastRoute, navigationActive { updateMarkerHazards(route) }
+        showToast(String(localized: "\(kind.label) markiert."))
+        return true
+    }
+
+    func removeMarker(id: String) {
+        MarkerStore.remove(id: id)
+        refreshFavoriteMarkers()
+        if let route = lastRoute, navigationActive { updateMarkerHazards(route) }
+    }
+
+    func showMarker(_ marker: MapMarker) {
+        followEnabled = false
+        map.ease(center: marker.point, zoom: 16, duration: 0.8)
     }
 
     /** Tipp auf einen Favoriten-Pin: Ort-Blatt wie bei POIs (Route, Infos aus OSM, falls vorhanden). */
     private func onFavoriteTap(_ id: String) {
+        if id.hasPrefix(MapMarker.pinPrefix) {
+            let markerId = String(id.dropFirst(MapMarker.pinPrefix.count))
+            if !pickingFavoriteLocation { selectedMarker = MarkerStore.list().first { $0.id == markerId } }
+            return
+        }
         guard !navigationActive, !pickingFavoriteLocation, let favorite = FavoritesStore.list().first(where: { $0.id == id }) else { return }
         if showSearchResults || searchFocused { dismissSearch() }
         poiSelection = PoiSelection(name: favorite.name, point: favorite.point)
@@ -1765,6 +1867,21 @@ final class AppModel: ObservableObject {
         let duration = FormatUtils.formatDuration(tracker.remainingDuration(position))
         let destination = waypoints.last.map { $0.label.components(separatedBy: ",").first ?? $0.label } ?? String(localized: "Ziel")
         return String(localized: "Ankunft in \(destination) um \(hud.etaText) – noch \(distance), etwa \(duration).")
+    }
+
+    /** Für Siri „Wie geht es weiter?“; nil = keine Navigation. */
+    func nextInstructionSentence() -> String? {
+        guard navigationActive, let tracker, let position = lastDisplayPosition else { return nil }
+        let next = tracker.displayedManeuver(position)
+        return String(localized: "In \(FormatUtils.formatDistance(next.distance)): \(next.step.instruction)")
+    }
+
+    /** Für Siri „Navigation beenden“; false = lief keine. */
+    @discardableResult
+    func stopNavigationBySiri() -> Bool {
+        guard navigationActive else { return false }
+        stopNavigation(userEnded: true)
+        return true
     }
 
     // MARK: - Parken

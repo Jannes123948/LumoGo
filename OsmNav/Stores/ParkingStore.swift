@@ -30,11 +30,13 @@ enum ParkingStore {
     static func save(_ car: ParkedCar) {
         guard let data = try? JSONEncoder().encode(car) else { return }
         UserDefaults.standard.set(data, forKey: key)
+        CloudSync.localChanged(key)
         publish(car)
     }
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)
+        CloudSync.localChanged(key)
         cancelReminder()
         publish(nil)
     }

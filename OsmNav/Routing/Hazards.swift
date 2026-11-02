@@ -2,10 +2,12 @@ import Foundation
 
 /** Art einer Gefahrenstelle auf der Route. */
 enum HazardKind: String, Equatable {
-    case levelCrossing, school, kindergarten, speedBump, animalCrossing, fallingRocks, slippery, curve, dangerousJunction, children, cyclists, generic
+    case speedCamera, roadworks, levelCrossing, school, kindergarten, speedBump, animalCrossing, fallingRocks, slippery, curve, dangerousJunction, children, cyclists, generic
 
     var label: String {
         switch self {
+        case .speedCamera: return String(localized: "Blitzer")
+        case .roadworks: return String(localized: "Baustelle")
         case .levelCrossing: return String(localized: "Bahnübergang")
         case .school: return String(localized: "Schule")
         case .kindergarten: return String(localized: "Kindergarten")
@@ -23,6 +25,8 @@ enum HazardKind: String, Equatable {
 
     var symbol: String {
         switch self {
+        case .speedCamera: return "camera.fill"
+        case .roadworks: return "hammer.fill"
         case .levelCrossing: return "train.side.front.car"
         case .school, .kindergarten, .children: return "figure.and.child.holdinghands"
         case .speedBump: return "car.rear.waves.up"
@@ -45,6 +49,7 @@ enum HazardKind: String, Equatable {
 
     /** OSM-Tags → Art; nil = keine Gefahrenstelle (z.B. `railway=crossing` für Fußgänger). */
     static func from(tags: [String: String]) -> HazardKind? {
+        if tags["highway"] == "speed_camera" || ["maxspeed", "average_speed"].contains(tags["enforcement"] ?? "") { return .speedCamera }
         if tags["railway"] == "level_crossing" { return .levelCrossing }
         if let calming = tags["traffic_calming"], ["bump", "hump", "table", "cushion", "yes"].contains(calming) { return .speedBump }
         switch tags["amenity"] {
@@ -94,13 +99,18 @@ struct HazardAhead: Equatable {
 enum HazardDetector {
 
     /** OSM-Punkte auf die Route legen: Punkte auf der Straße ≤ 20 m, Schulen/Kindergärten ≤ 80 m daneben. */
-    static func project(_ hazards: [Hazard], line: [LatLon], cumulative: [Double]) -> [HazardOnRoute] {
+    static func project(_ hazards: [Hazard], line: [LatLon], cumulative: [Double], maxOffset override: Double? = nil) -> [HazardOnRoute] {
         guard line.count >= 2 else { return [] }
         var result: [HazardOnRoute] = []
         for hazard in hazards {
             let (along, offset) = AlongRouteSearch.project(hazard.point, onto: line, cumulative: cumulative)
-            let maxOffset = (hazard.kind == .school || hazard.kind == .kindergarten) ? 80.0 : 20.0
-            guard offset <= maxOffset else { continue }
+            let maxOffset: Double
+            switch hazard.kind {
+            case .school, .kindergarten: maxOffset = 80
+            case .speedCamera: maxOffset = 40 // stehen oft neben der Fahrbahn
+            default: maxOffset = 20
+            }
+            guard offset <= (override ?? maxOffset) else { continue }
             // Gleiche Art dicht hintereinander (zwei Schwellen, Schulgebäude mit mehreren Umrissen) nur einmal.
             if result.contains(where: { $0.kind == hazard.kind && abs($0.along - along) < 150 }) { continue }
             result.append(HazardOnRoute(id: hazard.id, kind: hazard.kind, along: along))

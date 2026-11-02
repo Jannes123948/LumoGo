@@ -293,6 +293,13 @@ final class AppSettings: ObservableObject {
     /** „Auf der Route suchen“: wie weit voraus (km) und wie weit neben der Route (m). */
     @Published var alongRouteKm: Int { didSet { defaults.set(alongRouteKm, forKey: "along_route_km") } }
     @Published var alongRouteCorridor: Int { didSet { defaults.set(alongRouteCorridor, forKey: "along_route_corridor") } }
+    /** Favoriten, Routen, Fahrtenbuch und Parkplatz über iCloud abgleichen (siehe `CloudSync`). */
+    @Published var iCloudSync: Bool { didSet { defaults.set(iCloudSync, forKey: CloudSync.settingsKey); CloudSync.setEnabled(iCloudSync) } }
+    /** Route meiden (nur Auto, online): Maut, Autobahn, Fähren. */
+    @Published var avoidTolls: Bool { didSet { defaults.set(avoidTolls, forKey: "avoid_tolls") } }
+    @Published var avoidMotorways: Bool { didSet { defaults.set(avoidMotorways, forKey: "avoid_motorways") } }
+    @Published var avoidFerries: Bool { didSet { defaults.set(avoidFerries, forKey: "avoid_ferries") } }
+    var avoidOptions: RouteAvoidOptions { RouteAvoidOptions(tolls: avoidTolls, motorways: avoidMotorways, ferries: avoidFerries) }
     /** Wetter entlang der Route im Routen-Panel (Open-Meteo). */
     @Published var routeWeather: Bool { didSet { defaults.set(routeWeather, forKey: "route_weather") } }
     /** Wetter-Knopf rechts auf der Karte (hier jetzt/in 1 Stunde + auf der Strecke). */
@@ -316,6 +323,25 @@ final class AppSettings: ObservableObject {
     @Published var fuelPriceSign: Bool { didSet { defaults.set(fuelPriceSign, forKey: "fuel_price_sign") } }
     /** Gefahrenstellen aus OSM (Bahnübergang, Schule, Schwelle, Gefahrzeichen) anzeigen + ansagen. */
     @Published var hazardWarnings: Bool { didSet { defaults.set(hazardWarnings, forKey: "hazard_warnings") } }
+    /** Blitzer (OSM `highway=speed_camera`) auf der Route anzeigen + ansagen. Standard aus: in
+     *  Deutschland (§ 23 StVO) und einigen Ländern ist die Warnung vor Messstellen für Fahrer verboten. */
+    @Published var speedCameraWarnings: Bool { didSet { defaults.set(speedCameraWarnings, forKey: "speed_camera_warnings") } }
+    /** Auf der Autobahn vor der eigenen Ausfahrt ansagen, auf welche Spur man sich einordnen soll. */
+    @Published var exitLaneHint: Bool { didSet { defaults.set(exitLaneHint, forKey: "exit_lane_hint") } }
+    /** Pausen-Erinnerung nach so vielen Minuten reiner Fahrzeit; 0 = aus. */
+    @Published var breakReminderMinutes: Int { didSet { defaults.set(breakReminderMinutes, forKey: "break_reminder_minutes") } }
+    /** Toleranz der Tempo-Warnung je Straßenart (statt einer festen Toleranz). */
+    @Published var speedToleranceByRoad: Bool { didSet { defaults.set(speedToleranceByRoad, forKey: "speed_tol_by_road") } }
+    @Published var speedToleranceCity: Int { didSet { defaults.set(speedToleranceCity, forKey: "speed_tol_city") } }
+    @Published var speedToleranceRural: Int { didSet { defaults.set(speedToleranceRural, forKey: "speed_tol_rural") } }
+    @Published var speedToleranceMotorway: Int { didSet { defaults.set(speedToleranceMotorway, forKey: "speed_tol_motorway") } }
+
+    /** Toleranz (km/h) für ein Limit: je Straßenart (Ort ≤ 50, Landstraße, Autobahn) oder die feste. */
+    func tolerance(limit: Int, motorway: Bool) -> Int {
+        guard speedToleranceByRoad else { return speedTolerance }
+        if motorway || limit > 100 { return speedToleranceMotorway }
+        return limit <= 50 ? speedToleranceCity : speedToleranceRural
+    }
     /** Scharfe Kurven (aus der Routenlinie) außerorts ansagen. */
     @Published var curveWarnings: Bool { didSet { defaults.set(curveWarnings, forKey: "curve_warnings") } }
     /** „Route offline sichern“ im Routen-Panel (Korridor-Paket entlang der Route). */
@@ -400,6 +426,10 @@ final class AppSettings: ObservableObject {
         navWidgetEnabled = defaults.object(forKey: "nav_widget") as? Bool ?? true
         alongRouteKm = defaults.object(forKey: "along_route_km") as? Int ?? 50
         alongRouteCorridor = defaults.object(forKey: "along_route_corridor") as? Int ?? 600
+        iCloudSync = defaults.bool(forKey: CloudSync.settingsKey)
+        avoidTolls = defaults.bool(forKey: "avoid_tolls")
+        avoidMotorways = defaults.bool(forKey: "avoid_motorways")
+        avoidFerries = defaults.bool(forKey: "avoid_ferries")
         routeWeather = defaults.object(forKey: "route_weather") as? Bool ?? true
         weatherButton = defaults.object(forKey: "weather_button") as? Bool ?? true
         showTourTrack = defaults.object(forKey: "show_tour_track") as? Bool ?? true
@@ -412,6 +442,13 @@ final class AppSettings: ObservableObject {
         arrivalPlanner = defaults.object(forKey: "arrival_planner") as? Bool ?? true
         routeOffline = defaults.object(forKey: "route_offline") as? Bool ?? true
         hazardWarnings = defaults.object(forKey: "hazard_warnings") as? Bool ?? true
+        speedCameraWarnings = defaults.bool(forKey: "speed_camera_warnings")
+        exitLaneHint = defaults.object(forKey: "exit_lane_hint") as? Bool ?? true
+        breakReminderMinutes = defaults.object(forKey: "break_reminder_minutes") as? Int ?? 120
+        speedToleranceByRoad = defaults.bool(forKey: "speed_tol_by_road")
+        speedToleranceCity = defaults.object(forKey: "speed_tol_city") as? Int ?? 3
+        speedToleranceRural = defaults.object(forKey: "speed_tol_rural") as? Int ?? 5
+        speedToleranceMotorway = defaults.object(forKey: "speed_tol_motorway") as? Int ?? 8
         curveWarnings = defaults.object(forKey: "curve_warnings") as? Bool ?? true
         calendarTrips = defaults.object(forKey: "calendar_trips") as? Bool ?? true
         departureBuffer = defaults.object(forKey: "departure_buffer") as? Int ?? 10
@@ -464,6 +501,9 @@ final class AppSettings: ObservableObject {
         routePreviewEnabled = true
         recentSearchesEnabled = true
         routingProfile = .car
+        avoidTolls = false
+        avoidMotorways = false
+        avoidFerries = false
         emphasizeStreetNames = true
         voiceIdentifier = ""
         speechRate = SpeechService.defaultRate
@@ -527,6 +567,13 @@ final class AppSettings: ObservableObject {
         arrivalPlanner = true
         routeOffline = true
         hazardWarnings = true
+        speedCameraWarnings = false
+        exitLaneHint = true
+        breakReminderMinutes = 120
+        speedToleranceByRoad = false
+        speedToleranceCity = 3
+        speedToleranceRural = 5
+        speedToleranceMotorway = 8
         curveWarnings = true
         calendarTrips = true
         departureBuffer = 10

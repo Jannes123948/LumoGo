@@ -10,6 +10,7 @@ private enum DefaultsCodable {
 
     static func save<T: Encodable>(_ key: String, _ value: [T]) {
         UserDefaults.standard.set(try? JSONEncoder().encode(value), forKey: key)
+        CloudSync.localChanged(key)
     }
 }
 
@@ -90,6 +91,22 @@ enum FavoritesStore {
         }
         return imported
     }
+}
+
+/** Eigene Markierungen auf der Karte (Blitzer, Baustelle, Gefahr, Parkplatz, Notiz). */
+enum MarkerStore {
+    static let key = "osmnav_markers"
+
+    static func list() -> [MapMarker] {
+        let markers: [MapMarker] = DefaultsCodable.load(key)
+        return markers.sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func add(_ marker: MapMarker) { DefaultsCodable.save(key, [marker] + list()) }
+
+    static func remove(id: String) { DefaultsCodable.save(key, list().filter { $0.id != id }) }
+
+    static func update(_ marker: MapMarker) { DefaultsCodable.save(key, list().map { $0.id == marker.id ? marker : $0 }) }
 }
 
 /** Ein Halt einer gespeicherten Route. */
@@ -197,6 +214,7 @@ enum TripHistoryStore {
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: key)
+        CloudSync.localChanged(key)
         TripTrackStore.deleteAll()
     }
 }
@@ -221,6 +239,8 @@ enum TripTrackStore {
         guard let data = try? Data(contentsOf: file(tripId)) else { return [] }
         return (try? JSONDecoder().decode([TrackPoint].self, from: data)) ?? []
     }
+
+    static func exists(tripId: String) -> Bool { FileManager.default.fileExists(atPath: file(tripId).path) }
 
     static func delete(tripId: String) { try? FileManager.default.removeItem(at: file(tripId)) }
 

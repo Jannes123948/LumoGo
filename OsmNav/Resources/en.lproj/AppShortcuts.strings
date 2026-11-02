@@ -47,3 +47,12 @@
 "Bring mich mit ${applicationName} zum Auto" = "Take me to my car with ${applicationName}";
 "${applicationName} zum Auto" = "${applicationName} walk to my car";
 "Zu meinem Auto mit ${applicationName}" = "Walk to my car with ${applicationName}";
+"Beende die Navigation mit ${applicationName}" = "Stop navigation with ${applicationName}";
+"${applicationName} Navigation beenden" = "${applicationName} stop navigation";
+"${applicationName} stopp" = "${applicationName} stop";
+"Wie geht es weiter mit ${applicationName}" = "What's next with ${applicationName}";
+"${applicationName} wie geht es weiter" = "${applicationName} what's next";
+"${applicationName} nächste Anweisung" = "${applicationName} next instruction";
+"Markiere mit ${applicationName} ${kind}" = "Mark ${kind} with ${applicationName}";
+"${applicationName} markiere ${kind}" = "${applicationName} mark ${kind}";
+"${applicationName} ${kind} hier" = "${applicationName} ${kind} here";

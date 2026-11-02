@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum ActiveSheet: String, Identifiable {
-    case settings, favorites, nearby, trips, offline, alongRoute, weather, parking, arrivalPlanner
+    case settings, favorites, nearby, trips, offline, alongRoute, weather, parking, arrivalPlanner, markers
     var id: String { rawValue }
 }
 
@@ -186,6 +186,7 @@ struct ContentView: View {
             case .weather: WeatherSheet()
             case .parking: ParkingSheet()
             case .arrivalPlanner: ArrivalPlannerSheet()
+            case .markers: MarkersSheet()
             }
         }
         .sheet(item: $model.poiSelection) { _ in
@@ -193,6 +194,15 @@ struct ContentView: View {
         }
         .sheet(item: $model.pendingFavorite) { pending in
             FavoriteNameSheet(pending: pending)
+        }
+        .confirmationDialog(model.selectedMarker?.title ?? "", isPresented: Binding(get: { model.selectedMarker != nil }, set: { if !$0 { model.selectedMarker = nil } }), titleVisibility: .visible, presenting: model.selectedMarker) { marker in
+            Button("Hierhin navigieren") {
+                model.navigateNow(to: Favorite(id: marker.id, name: marker.title, point: marker.point, isHome: false))
+            }
+            Button("Markierung löschen", role: .destructive) { model.removeMarker(id: marker.id) }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { marker in
+            Text(marker.kind.label)
         }
         .alert("Hinweis", isPresented: Binding(get: { model.alertMessage != nil }, set: { if !$0 { model.alertMessage = nil } })) {
             Button("OK", role: .cancel) {}
@@ -211,6 +221,8 @@ struct ContentView: View {
             }
             MapButton(symbol: "location.magnifyingglass") { sheet = .nearby }
             MapButton(symbol: "star.fill") { sheet = .favorites }
+            MapButton(symbol: "mappin.and.ellipse") { sheet = .markers }
+                .accessibilityLabel("Markierungen")
             MapButton(symbol: "icloud.and.arrow.down") { sheet = .offline }
             MapButton(symbol: "gearshape.fill") { sheet = .settings }
         }

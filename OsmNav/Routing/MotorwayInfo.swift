@@ -77,6 +77,25 @@ enum MotorwayInfo {
         .sorted { $0.along < $1.along }
     }
 
+    /** Verlässt die Route die Autobahn links? (Rechtsverkehr: normalerweise rechts.) */
+    static func exitIsOnLeft(_ poi: MotorwayPoi, tracker: RouteProgressTracker) -> Bool {
+        for i in 1..<max(tracker.stepCount, 1) {
+            let along = tracker.maneuverAlong(i)
+            guard along >= poi.along - 50, along <= poi.along + 300, leavingTypes.contains(tracker.step(i).maneuverType) else { continue }
+            return tracker.step(i).maneuverModifier?.contains("left") ?? false
+        }
+        return false
+    }
+
+    /** Hinweis zur Spur vor der eigenen Ausfahrt; [near] = kurz davor. */
+    static func exitHintSentence(_ poi: MotorwayPoi, left: Bool, near: Bool) -> String {
+        let side = left ? String(localized: "links") : String(localized: "rechts")
+        if near { return String(localized: "Jetzt \(side) halten – gleich kommt deine Ausfahrt.") }
+        let label = [poi.ref, poi.title].compactMap { $0 }.joined(separator: " ")
+        let subject = poi.kind == .exit ? String(localized: "Ausfahrt \(label)") : label
+        return String(localized: "Bald \(subject) – bitte \(side) einordnen.")
+    }
+
     /** Roher Treffer der Rastanlagen-Abfrage. */
     struct RestAreaPlace: Equatable {
         let id: String

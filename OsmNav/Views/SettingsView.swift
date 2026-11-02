@@ -74,6 +74,9 @@ struct SettingsView: View {
                         }
                     }
                     .foregroundStyle(.primary)
+                    NavigationLink { BackupSettingsPage() } label: {
+                        SettingsRow(title: "Datensicherung", symbol: "externaldrive.fill", color: .cyan)
+                    }
                 } header: {
                     Text("Daten")
                 }
@@ -241,6 +244,33 @@ private struct ColorDots: View {
 private struct MapSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
 
+    private var offlineValue: String {
+        if settings.fullyOffline { return String(localized: "Komplett offline") }
+        return settings.offlineMapsOnly ? String(localized: "Nur Offline-Karten") : String(localized: "Aus")
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink { MapStyleSettingsPage() } label: {
+                    SettingsRow(title: "Kartenstil", symbol: "map.fill", color: .green,
+                                value: "\(settings.mapEngine == .vector ? "MapLibre" : "OSM") · \(settings.mapTheme.label)")
+                }
+                NavigationLink { MapOfflineSettingsPage() } label: {
+                    SettingsRow(title: "Offline", symbol: "wifi.slash", color: .gray, value: offlineValue)
+                }
+                NavigationLink { MapLocationSettingsPage() } label: {
+                    SettingsRow(title: "Standort", symbol: "location.fill", color: .blue)
+                }
+            }
+        }
+        .navigationTitle("Karte")
+    }
+}
+
+private struct MapStyleSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
     var body: some View {
         Form {
             Section {
@@ -278,6 +308,16 @@ private struct MapSettingsPage: View {
                     SettingToggle("Kompass-Knopf", symbol: "safari.fill", color: .red, isOn: $settings.showCompassButton)
                 }
             }
+        }
+        .navigationTitle("Kartenstil")
+    }
+}
+
+private struct MapOfflineSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 SettingToggle("Nur Offline-Karten verwenden", symbol: "map", color: .gray, isOn: $settings.offlineMapsOnly)
                     .disabled(settings.fullyOffline)
@@ -289,6 +329,16 @@ private struct MapSettingsPage: View {
                      ? "Achtung: Offline-Pakete gibt es nur für die Vektorkarte (MapLibre) — die OSM-Karte bleibt offline leer. Oben „MapLibre“ wählen."
                      : "Nur Offline-Karten: Die Karte lädt nichts aus dem Internet und zeigt nur heruntergeladene Gebiete (spart Datenvolumen). Komplett offline: auch Routing, Suche und Ort-Infos nur aus den Offline-Daten. Eigene Offline-Downloads funktionieren trotzdem.")
             }
+        }
+        .navigationTitle("Offline")
+    }
+}
+
+private struct MapLocationSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 SettingToggle("Position auf Straße einrasten", symbol: "road.lanes.curved.right", color: .blue, isOn: $settings.snapToRoad)
                 SettingToggle("Kompass im Stand", symbol: "location.north.circle.fill", color: .teal, isOn: $settings.compassWhenIdle)
@@ -298,7 +348,7 @@ private struct MapSettingsPage: View {
                 Text("Einrasten: Der Pfeil sitzt auf der nächsten Straße statt an der ungenauen GPS-Position. Kompass: Im Stand zeigt der Pfeil in die Richtung, in die das iPhone zeigt.")
             }
         }
-        .navigationTitle("Karte")
+        .navigationTitle("Standort")
     }
 }
 
@@ -306,8 +356,59 @@ private struct MapSettingsPage: View {
 
 private struct DesignSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
-    @Environment(\.colorScheme) private var colorScheme
     @State private var confirmReset = false
+
+    var body: some View {
+        Form {
+            Section {
+                ThemePreview()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
+            Section {
+                NavigationLink { SurfaceColorsPage() } label: {
+                    HStack {
+                        SettingsRow(title: "Oberfläche", symbol: "paintbrush.fill", color: .pink)
+                        Spacer()
+                        ColorDots(hexes: [settings.accentHex])
+                    }
+                }
+                NavigationLink { NavBarColorsPage() } label: {
+                    HStack {
+                        SettingsRow(title: "Navigationsleisten", symbol: "rectangle.fill", color: .indigo)
+                        Spacer()
+                        ColorDots(hexes: [settings.resolvedHudBackgroundHex])
+                    }
+                }
+                NavigationLink { MapColorsPage() } label: {
+                    HStack {
+                        SettingsRow(title: "Karte", symbol: "map.fill", color: .green)
+                        Spacer()
+                        ColorDots(hexes: [settings.routeHex, settings.puckHex])
+                    }
+                }
+            }
+            if LiquidGlass.isAvailable {
+                Section {
+                    SettingToggle("Liquid Glass", symbol: "drop.fill", color: .cyan, isOn: $settings.liquidGlass)
+                } footer: {
+                    Text("Gläserner Look von iOS 26 für Kartenknöpfe, Suchleiste, Panels und Navigationsleisten. Aus = klassischer Look wie unter iOS 16–18.")
+                }
+            }
+            Section {
+                Button("Farben zurücksetzen", role: .destructive) { confirmReset = true }
+            }
+        }
+        .navigationTitle("Design & Farben")
+        .confirmationDialog("Alle Farben auf Standard zurücksetzen?", isPresented: $confirmReset, titleVisibility: .visible) {
+            Button("Zurücksetzen", role: .destructive) { withAnimation { settings.resetColors() } }
+        }
+    }
+}
+
+private struct SurfaceColorsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Form {
@@ -327,6 +428,21 @@ private struct DesignSettingsPage: View {
             } footer: {
                 Text("Oberflächenfarbe = gefüllte Knöpfe. „Text & Links“ = Text-Knöpfe wie „Fertig“, Schalter und Auswahl. „Automatisch“ hält alle Schrift lesbar — auch bei Weiß oder Gelb.")
             }
+        }
+        .navigationTitle("Oberfläche")
+    }
+}
+
+private struct NavBarColorsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                ThemePreview()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
             Section {
                 ColorSettingRow(title: "Hintergrund", symbol: "rectangle.fill", hex: $settings.hudBackgroundHex,
                                 autoHex: HexColor.darker(settings.accentHex))
@@ -345,27 +461,29 @@ private struct DesignSettingsPage: View {
             } header: {
                 Text("Navigationsleisten")
             }
+        }
+        .navigationTitle("Navigationsleisten")
+    }
+}
+
+private struct MapColorsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                ThemePreview()
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+            }
             Section {
                 ColorSettingRow(title: "Routenlinie", symbol: "point.topleft.down.curvedto.point.bottomright.up.fill", hex: $settings.routeHex.asOptional)
                 ColorSettingRow(title: "Standort-Pfeil", symbol: "location.north.fill", hex: $settings.puckHex.asOptional)
             } header: {
                 Text("Karte")
             }
-            if LiquidGlass.isAvailable {
-                Section {
-                    SettingToggle("Liquid Glass", symbol: "drop.fill", color: .cyan, isOn: $settings.liquidGlass)
-                } footer: {
-                    Text("Gläserner Look von iOS 26 für Kartenknöpfe, Suchleiste, Panels und Navigationsleisten. Aus = klassischer Look wie unter iOS 16–18.")
-                }
-            }
-            Section {
-                Button("Farben zurücksetzen", role: .destructive) { confirmReset = true }
-            }
         }
-        .navigationTitle("Design & Farben")
-        .confirmationDialog("Alle Farben auf Standard zurücksetzen?", isPresented: $confirmReset, titleVisibility: .visible) {
-            Button("Zurücksetzen", role: .destructive) { withAnimation { settings.resetColors() } }
-        }
+        .navigationTitle("Karte")
     }
 }
 
@@ -557,6 +675,65 @@ private struct ThemePreview: View {
 private struct NavigationSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
 
+    private var avoidSummary: String {
+        var parts: [String] = []
+        if settings.avoidTolls { parts.append(String(localized: "Maut")) }
+        if settings.avoidMotorways { parts.append(String(localized: "Autobahn")) }
+        if settings.avoidFerries { parts.append(String(localized: "Fähren")) }
+        return parts.isEmpty ? String(localized: "Aus") : parts.joined(separator: ", ")
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink { RouteSettingsPage() } label: {
+                    SettingsRow(title: "Route", symbol: "signpost.right.and.left.fill", color: .blue, value: settings.routingProfile.label)
+                }
+                NavigationLink { AvoidSettingsPage() } label: {
+                    SettingsRow(title: "Route meiden", symbol: "arrow.triangle.branch", color: .teal, value: avoidSummary)
+                }
+                NavigationLink { FuelCostSettingsPage() } label: {
+                    SettingsRow(title: "Spritkosten", symbol: "eurosign.circle.fill", color: .green,
+                                value: settings.fuelCostEnabled ? String(localized: "An") : String(localized: "Aus"))
+                }
+            } header: {
+                Text("Planung")
+            }
+            Section {
+                NavigationLink { NavDisplaySettingsPage() } label: {
+                    SettingsRow(title: "Anzeige", symbol: "rectangle.on.rectangle", color: .indigo)
+                }
+                NavigationLink { NavGuidanceSettingsPage() } label: {
+                    SettingsRow(title: "Führung", symbol: "arrow.turn.up.right", color: .orange)
+                }
+                NavigationLink { NavWarningsSettingsPage() } label: {
+                    SettingsRow(title: "Warnungen", symbol: "exclamationmark.triangle.fill", color: .yellow)
+                }
+                NavigationLink { LockScreenSettingsPage() } label: {
+                    SettingsRow(title: "Sperrbildschirm & Siri", symbol: "lock.iphone", color: .purple)
+                }
+            } header: {
+                Text("Während der Fahrt")
+            }
+            Section {
+                NavigationLink { ParkingTripsSettingsPage() } label: {
+                    SettingsRow(title: "Parken & Fahrtenbuch", symbol: "car.fill", color: .brown)
+                }
+                NavigationLink { OfflineRoutingSettingsPage() } label: {
+                    SettingsRow(title: "Offline-Routing", symbol: "point.3.connected.trianglepath.dotted", color: .gray,
+                                value: settings.offlineRoadSource.label)
+                }
+            } header: {
+                Text("Mehr")
+            }
+        }
+        .navigationTitle("Navigation")
+    }
+}
+
+private struct RouteSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
     var body: some View {
         Form {
             Section {
@@ -594,29 +771,35 @@ private struct NavigationSettingsPage: View {
             } footer: {
                 Text("Lupe in der Navi-Leiste bzw. „Auf der Route“ vor dem Start: Tankstellen, Rastplätze, Supermärkte, Toiletten, Essen, Parken, Ladesäulen entlang der Strecke — mit Umweg in Minuten; Antippen fügt einen Zwischenstopp ein. Größere Bereiche dauern länger.")
             }
+        }
+        .navigationTitle("Route")
+    }
+}
+
+private struct AvoidSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
-                SettingToggle("Display bleibt an", symbol: "sun.max.fill", color: .yellow, isOn: $settings.keepScreenOn)
-                SettingToggle("Zoom passt sich dem Tempo an", symbol: "plus.magnifyingglass", color: .green, isOn: $settings.autoZoom)
-                SettingToggle("Fahrstreifen-Empfehlung", symbol: "arrow.up.and.down.and.arrow.left.and.right", color: .blue, isOn: $settings.laneGuidance)
-                SettingToggle("Pfeil flüssig bewegen", symbol: "hare.fill", color: .mint, isOn: $settings.smoothPuck)
-                SettingToggle("Pfeil unten im Bild", symbol: "arrow.down.to.line", color: .cyan, isOn: $settings.navPuckLow)
-                SettingToggle("Straßenname unten anzeigen", symbol: "signpost.right.fill", color: .green, isOn: $settings.showRoadName)
-                SettingToggle("Straßenname auch ohne Navigation", symbol: "signpost.right", color: .green, isOn: $settings.roadNameFreeMode)
-                SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
-                SettingToggle("Kreuzungsansicht", symbol: "arrow.triangle.branch", color: .indigo, isOn: $settings.junctionView)
-                SettingToggle("Abbiegepfeil auf der Karte", symbol: "arrow.turn.up.right", color: .gray, isOn: $settings.maneuverArrow)
-                SettingToggle("Autobahn-Leiste", symbol: "road.lanes", color: .blue, isOn: $settings.motorwayBar)
-                SettingToggle("Tunnel-Modus", symbol: "location.slash.fill", color: .brown, isOn: $settings.tunnelMode)
-                SettingToggle("Gefahrenstellen", symbol: "exclamationmark.triangle.fill", color: .yellow, isOn: $settings.hazardWarnings)
-                SettingToggle("Scharfe Kurven ansagen", symbol: "arrow.turn.up.right", color: .red, isOn: $settings.curveWarnings)
-                SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
-                SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
-                SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
+                SettingToggle("Maut meiden", symbol: "eurosign.circle.fill", color: .orange, isOn: $settings.avoidTolls)
+                SettingToggle("Autobahn meiden", symbol: "road.lanes", color: .blue, isOn: $settings.avoidMotorways)
+                SettingToggle("Fähren meiden", symbol: "ferry.fill", color: .teal, isOn: $settings.avoidFerries)
             } header: {
-                Text("Während der Navigation")
+                Text("Route meiden")
             } footer: {
-                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen). Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist. Gefahrenstellen: Bahnübergänge, Bodenschwellen, Gefahrzeichen (Wildwechsel, Steinschlag …) und Schulen/Kindergärten (werktags 6–18 Uhr) aus OpenStreetMap — gelbes Schild und Ansage vorher (nur online berechnete Auto-Routen). Scharfe Kurven: aus dem Routenverlauf erkannt, Ansage ab 50 km/h. Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+                Text("Nur Profil Auto und nur online. Der Streckenverlauf kommt vom Valhalla-Server (FOSSGIS), die Abbiegehinweise berechnet wie gewohnt OSRM. Lässt sich Maut oder eine Fähre nicht umgehen, sagt die App es. Ohne Internet (Offline-Routing) wird „Meiden“ nicht berücksichtigt. Auf langen Strecken kann die Route stellenweise vom Idealverlauf abweichen. GPX-Touren sind ausgenommen. Auch im Routen-Panel unter dem Profil umschaltbar.")
             }
+        }
+        .navigationTitle("Route meiden")
+    }
+}
+
+private struct FuelCostSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 SettingToggle("Spritkosten anzeigen", symbol: "eurosign.circle.fill", color: .green, isOn: $settings.fuelCostEnabled)
                 if settings.fuelCostEnabled {
@@ -634,6 +817,131 @@ private struct NavigationSettingsPage: View {
             } footer: {
                 Text("Geschätzte Kosten je Route (Profil Auto) und im Fahrtenbuch: Strecke × Verbrauch × Literpreis. Mit Tankerkönig-Schlüssel (Suche & Orte → Spritpreise) wird der aktuelle Durchschnittspreis der Tankstellen in der Nähe genommen, sonst der eigene Literpreis.")
             }
+        }
+        .navigationTitle("Spritkosten")
+    }
+}
+
+private struct NavDisplaySettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                SettingToggle("Display bleibt an", symbol: "sun.max.fill", color: .yellow, isOn: $settings.keepScreenOn)
+                SettingToggle("Zoom passt sich dem Tempo an", symbol: "plus.magnifyingglass", color: .green, isOn: $settings.autoZoom)
+                SettingToggle("Pfeil flüssig bewegen", symbol: "hare.fill", color: .mint, isOn: $settings.smoothPuck)
+                SettingToggle("Pfeil unten im Bild", symbol: "arrow.down.to.line", color: .cyan, isOn: $settings.navPuckLow)
+                SettingToggle("Straßenname unten anzeigen", symbol: "signpost.right.fill", color: .green, isOn: $settings.showRoadName)
+                SettingToggle("Straßenname auch ohne Navigation", symbol: "signpost.right", color: .green, isOn: $settings.roadNameFreeMode)
+                SettingToggle("Abbiegepfeil auf der Karte", symbol: "arrow.turn.up.right", color: .gray, isOn: $settings.maneuverArrow)
+                SettingToggle("Autobahn-Leiste", symbol: "road.lanes", color: .blue, isOn: $settings.motorwayBar)
+            } header: {
+                Text("Während der Navigation")
+            } footer: {
+                Text("Pfeil flüssig: gleitet zwischen den GPS-Punkten, statt zu springen; die Karte fährt gleichmäßig mit. Pfeil unten: mehr Strecke voraus im Blick (wie Google Maps). Straßenname ohne Navigation: unter dem Pfeil, solange die Karte dir folgt (kommt mit dem Einrasten auf die Straße, offline aus den Routing-Daten). Abbiegepfeil: weißer Pfeil auf der Straße am nächsten Manöver. Autobahn-Leiste: auf der Autobahn die nächsten Ausfahrten und Rastanlagen mit Entfernung, deine Ausfahrt hervorgehoben (OpenStreetMap, nur online berechnete Auto-Routen).")
+            }
+        }
+        .navigationTitle("Anzeige")
+    }
+}
+
+private struct NavGuidanceSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                SettingToggle("Fahrstreifen-Empfehlung", symbol: "arrow.up.and.down.and.arrow.left.and.right", color: .blue, isOn: $settings.laneGuidance)
+                SettingToggle("Automatisch neu berechnen", symbol: "arrow.clockwise", color: .orange, isOn: $settings.autoReroute)
+                SettingToggle("Kreuzungsansicht", symbol: "arrow.triangle.branch", color: .indigo, isOn: $settings.junctionView)
+                SettingToggle("Tunnel-Modus", symbol: "location.slash.fill", color: .brown, isOn: $settings.tunnelMode)
+            } header: {
+                Text("Führung")
+            } footer: {
+                Text("Neu berechnen: Weicht man mehr als 50 m von der Route ab, wird automatisch eine neue Route gesucht. Kreuzungsansicht: vor Ausfahrten, Gabelungen, Kreisverkehren und Stellen mit Fahrstreifen-Wahl zoomt die Karte heran, die Fahrstreifen werden groß gezeigt, ein Balken zählt bis zum Abbiegen herunter. Tunnel-Modus: Fällt das GPS aus (Tunnel), läuft der Pfeil mit dem letzten Tempo auf der Route weiter, bis wieder Empfang da ist.")
+            }
+            Section {
+                SettingToggle("Spur vor der Ausfahrt ansagen", symbol: "arrow.up.right.circle.fill", color: .blue, isOn: $settings.exitLaneHint)
+            } header: {
+                Text("Autobahn")
+            } footer: {
+                Text("Vor deiner Ausfahrt sagt die App einmal etwa 1,5 km vorher und einmal kurz davor, auf welche Seite du dich einordnen sollst („Bald Ausfahrt 78 – bitte rechts einordnen“). Nur mit online berechneten Auto-Routen.")
+            }
+        }
+        .navigationTitle("Führung")
+    }
+}
+
+private struct NavWarningsSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                SettingToggle("Gefahrenstellen", symbol: "exclamationmark.triangle.fill", color: .yellow, isOn: $settings.hazardWarnings)
+                SettingToggle("Blitzer-Warnung", symbol: "camera.fill", color: .gray, isOn: $settings.speedCameraWarnings)
+                SettingToggle("Scharfe Kurven ansagen", symbol: "arrow.turn.up.right", color: .red, isOn: $settings.curveWarnings)
+            } header: {
+                Text("Warnungen")
+            } footer: {
+                Text("Gefahrenstellen: Bahnübergänge, Bodenschwellen, Gefahrzeichen (Wildwechsel, Steinschlag …) und Schulen/Kindergärten (werktags 6–18 Uhr) aus OpenStreetMap — gelbes Schild und Ansage vorher (nur online berechnete Auto-Routen). Blitzer-Warnung: feste Messstellen aus OpenStreetMap (nur wo eingetragen, nicht vollständig, keine mobilen) mit Symbol und Ansage — bitte die Rechtslage beachten: In Deutschland, der Schweiz und anderen Ländern ist die Warnung vor Messstellen für Fahrer verboten; deshalb standardmäßig aus. Scharfe Kurven: aus dem Routenverlauf erkannt, Ansage ab 50 km/h.")
+            }
+            Section {
+                Picker(selection: $settings.breakReminderMinutes) {
+                    Text("Aus").tag(0)
+                    ForEach([60, 90, 120, 150, 180, 240], id: \.self) { minutes in
+                        Text(minutes % 60 == 0 ? String(localized: "\(minutes / 60) Std") : String(localized: "\(minutes / 60) Std \(minutes % 60) Min")).tag(minutes)
+                    }
+                } label: {
+                    SettingsRow(title: "Pause empfehlen nach", symbol: "cup.and.saucer.fill", color: .brown)
+                }
+            } header: {
+                Text("Pausen")
+            } footer: {
+                Text("Nach der eingestellten reinen Fahrzeit kommt eine Ansage mit der nächsten Rastmöglichkeit auf der Autobahn (falls bekannt). Steht das Auto länger als 15 Minuten, beginnt die Zählung neu.")
+            }
+        }
+        .navigationTitle("Warnungen")
+    }
+}
+
+private struct LockScreenSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                SettingToggle("Sperrbildschirm & Dynamic Island", symbol: "lock.iphone", color: .indigo, isOn: $settings.liveActivityEnabled)
+                SettingToggle("Navigations-Widget", symbol: "rectangle.3.group.fill", color: .purple, isOn: $settings.navWidgetEnabled)
+                SettingToggle("Erinnern, wenn sich die geteilte Ankunft verschiebt", symbol: "clock.badge.exclamationmark", color: .teal, isOn: $settings.etaSharePrompt)
+            } header: {
+                Text("Sperrbildschirm & Widget")
+            } footer: {
+                Text("Sperrbildschirm: nächstes Abbiegen, Entfernung und Ankunft ohne Entsperren — braucht in den iPhone-Einstellungen → LumoGo „Live-Aktivitäten“. Navigations-Widget (Ersatz für Bild-im-Bild): Homescreen lange drücken → „+“ → LumoGo → „LumoGo Navigation“ (klein, mittel, groß); zeigt Abbiegen, Ankunft und eine schematische Route, iOS aktualisiert es etwa alle 10 Sekunden. Ankunft teilen: Knopf in der unteren Navi-Leiste; verschiebt sich die Ankunft danach um mehr als 5 Minuten, erscheint „Neu teilen“.")
+            }
+            Section {
+                Label("„Hey Siri, mit LumoGo nach Hause“", systemImage: "house.fill")
+                Label("„Navigiere mit LumoGo zu <Favorit>“", systemImage: "star.fill")
+                Label("„Tankstellen in der Nähe mit LumoGo“", systemImage: "fuelpump.fill")
+                Label("„Markiere mit LumoGo Blitzer“", systemImage: "mappin.and.ellipse")
+                Label("„Wie geht es weiter mit LumoGo“", systemImage: "arrow.turn.up.right")
+                Label("„Beende die Navigation mit LumoGo“", systemImage: "xmark.circle.fill")
+            } header: {
+                Text("Siri & Widget")
+            } footer: {
+                Text("Funktioniert ohne Einrichtung, auch in der Kurzbefehle-App. Widget: Homescreen lange drücken → „+“ → LumoGo (auch für den Sperrbildschirm). „Nach Hause“ braucht ein gespeichertes Zuhause in den Favoriten.")
+            }
+        }
+        .navigationTitle("Sperrbildschirm & Siri")
+    }
+}
+
+private struct ParkingTripsSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 SettingToggle("Parkplatz merken", symbol: "car.fill", color: .blue, isOn: $settings.parkingMemory)
             } header: {
@@ -648,15 +956,16 @@ private struct NavigationSettingsPage: View {
             } footer: {
                 Text("Speichert bei Ankunft die gefahrene Strecke mit Ø- und Höchstgeschwindigkeit — im Fahrtenbuch mit Karte und als GPX-Datei teilbar.")
             }
-            Section {
-                Label("„Hey Siri, mit LumoGo nach Hause“", systemImage: "house.fill")
-                Label("„Navigiere mit LumoGo zu <Favorit>“", systemImage: "star.fill")
-                Label("„Tankstellen in der Nähe mit LumoGo“", systemImage: "fuelpump.fill")
-            } header: {
-                Text("Siri & Widget")
-            } footer: {
-                Text("Funktioniert ohne Einrichtung, auch in der Kurzbefehle-App. Widget: Homescreen lange drücken → „+“ → LumoGo (auch für den Sperrbildschirm). „Nach Hause“ braucht ein gespeichertes Zuhause in den Favoriten.")
-            }
+        }
+        .navigationTitle("Parken & Fahrtenbuch")
+    }
+}
+
+private struct OfflineRoutingSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 Picker(selection: $settings.offlineRoadSource) {
                     ForEach(OfflineRoadSource.allCases) { Text($0.label).tag($0) }
@@ -670,9 +979,10 @@ private struct NavigationSettingsPage: View {
                 Text("Gilt für Offline-Routing UND Offline-Suche. Kartenkacheln: in Sekunden fertig, auch für große Gebiete, Suche mit Adressen und Straßen; Routing ohne Abbiegeverbote und echte Tempolimits (Tempo nach Straßenart, innerorts 50). Overpass: genauere Routing-Daten, Suche nur mit benannten Orten (keine Adressen), aber der Server ist oft überlastet — klappt eine Quelle nicht, wird automatisch die andere versucht. Rad- und Fußwege aus: nur Straßen, kleiner und schneller, reicht fürs Auto; an: auch Feld-, Rad- und Fußwege fürs Fahrrad oder zu Fuß. Gilt für neu geladene Routing-Daten (Paket-Menü → „Routing-Daten aktualisieren“).")
             }
         }
-        .navigationTitle("Navigation")
+        .navigationTitle("Offline-Routing")
     }
 }
+
 
 // MARK: - Sprachausgabe
 
@@ -799,8 +1109,21 @@ private struct SpeedSettingsPage: View {
             }
             Section {
                 SettingToggle("Ansage bei Überschreitung", symbol: "speaker.badge.exclamationmark.fill", color: .orange, isOn: $settings.speedWarning)
-                Stepper(value: $settings.speedTolerance, in: 0...15) {
-                    SettingsRow(title: "Toleranz", symbol: "plusminus", color: .gray, value: "\(settings.speedTolerance) km/h")
+                SettingToggle("Toleranz nach Straßenart", symbol: "road.lanes", color: .teal, isOn: $settings.speedToleranceByRoad)
+                if settings.speedToleranceByRoad {
+                    Stepper(value: $settings.speedToleranceCity, in: 0...15) {
+                        SettingsRow(title: "Ortschaft (bis 50)", symbol: "building.2.fill", color: .gray, value: "\(settings.speedToleranceCity) km/h")
+                    }
+                    Stepper(value: $settings.speedToleranceRural, in: 0...20) {
+                        SettingsRow(title: "Landstraße", symbol: "tree.fill", color: .green, value: "\(settings.speedToleranceRural) km/h")
+                    }
+                    Stepper(value: $settings.speedToleranceMotorway, in: 0...30) {
+                        SettingsRow(title: "Autobahn", symbol: "car.side.fill", color: .blue, value: "\(settings.speedToleranceMotorway) km/h")
+                    }
+                } else {
+                    Stepper(value: $settings.speedTolerance, in: 0...15) {
+                        SettingsRow(title: "Toleranz", symbol: "plusminus", color: .gray, value: "\(settings.speedTolerance) km/h")
+                    }
                 }
             } header: {
                 Text("Warnung")
@@ -816,6 +1139,29 @@ private struct SpeedSettingsPage: View {
 // MARK: - Suche & Orte
 
 private struct SearchSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
+            Section {
+                NavigationLink { PlacesSearchSettingsPage() } label: {
+                    SettingsRow(title: "Orte & Suche", symbol: "magnifyingglass", color: .purple)
+                }
+                NavigationLink { FuelPriceSettingsPage() } label: {
+                    SettingsRow(title: "Spritpreise", symbol: "fuelpump.fill", color: .green,
+                                value: settings.tankerkoenigKey.trimmingCharacters(in: .whitespaces).isEmpty ? String(localized: "Aus") : settings.fuelType.label)
+                }
+                NavigationLink { SharedPlacesSettingsPage() } label: {
+                    SettingsRow(title: "Aus anderen Apps teilen", symbol: "square.and.arrow.down.fill", color: .blue,
+                                value: settings.sharedPlaces ? String(localized: "An") : String(localized: "Aus"))
+                }
+            }
+        }
+        .navigationTitle("Suche & Orte")
+    }
+}
+
+private struct PlacesSearchSettingsPage: View {
     @EnvironmentObject private var settings: AppSettings
     @State private var cleared = false
 
@@ -843,7 +1189,25 @@ private struct SearchSettingsPage: View {
             } header: {
                 Text("Suche")
             }
+        }
+        .navigationTitle("Orte & Suche")
+    }
+}
+
+private struct FuelPriceSettingsPage: View {
+    var body: some View {
+        Form {
             FuelPriceSection()
+        }
+        .navigationTitle("Spritpreise")
+    }
+}
+
+private struct SharedPlacesSettingsPage: View {
+    @EnvironmentObject private var settings: AppSettings
+
+    var body: some View {
+        Form {
             Section {
                 SettingToggle("Geteilte Orte übernehmen", symbol: "square.and.arrow.down.fill", color: .blue, isOn: $settings.sharedPlaces)
                 if settings.sharedPlaces {
@@ -855,7 +1219,7 @@ private struct SearchSettingsPage: View {
                 Text("In Apple Karten, Google Maps, WhatsApp, Safari & Co. auf „Teilen“ tippen und „LumoGo“ wählen (ggf. unter „Mehr“ aktivieren): Der Ort wird als Ziel gesetzt. Klappt das automatische Öffnen nicht, übernimmt LumoGo ihn beim nächsten Öffnen. Geteilte Adressen ohne Koordinaten landen in der Suche.")
             }
         }
-        .navigationTitle("Suche & Orte")
+        .navigationTitle("Aus anderen Apps teilen")
     }
 }
 
@@ -919,5 +1283,57 @@ private extension Binding where Value == UInt32 {
     /** Pflichtfarbe als optionale Bindung (die Zeile bietet dann kein „Automatisch“ an). */
     var asOptional: Binding<UInt32?> {
         Binding<UInt32?>(get: { wrappedValue }, set: { if let value = $0 { wrappedValue = value } })
+    }
+}
+
+
+// MARK: - Datensicherung
+
+private struct BackupSettingsPage: View {
+    @State private var backupFile: URL?
+    @State private var importing = false
+    @State private var message: String?
+    @State private var failed = false
+
+    var body: some View {
+        Form {
+            Section {
+                if let backupFile {
+                    ShareLink(item: backupFile) {
+                        SettingsRow(title: "Sicherung speichern oder teilen", symbol: "square.and.arrow.up.fill", color: .blue)
+                    }
+                }
+                Button { importing = true } label: {
+                    SettingsRow(title: "Sicherung wiederherstellen", symbol: "square.and.arrow.down.fill", color: .green)
+                }
+                .foregroundStyle(.primary)
+            } header: {
+                Text("Sichern & wiederherstellen")
+            } footer: {
+                Text("Eine Datei mit Favoriten, gespeicherten Routen, Fahrtenbuch (ohne aufgezeichnete Strecken), eigenen Markierungen und dem Parkplatz — z. B. in „Dateien“, per AirDrop oder Mail an dich selbst. Beim Wiederherstellen wird zusammengeführt: Vorhandenes bleibt, Fehlendes kommt dazu. GPX-Touren und Einstellungen sind nicht enthalten.")
+            }
+        }
+        .navigationTitle("Datensicherung")
+        .task { backupFile = try? BackupManager.export() }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+            do {
+                let url = try result.get()
+                let access = url.startAccessingSecurityScopedResource()
+                defer { if access { url.stopAccessingSecurityScopedResource() } }
+                let summary = try BackupManager.restore(try Data(contentsOf: url))
+                failed = false
+                message = summary.isEmpty ? String(localized: "Nichts Neues – alles war schon vorhanden.")
+                                          : String(localized: "Übernommen: \(summary.text).")
+                backupFile = try? BackupManager.export()
+            } catch {
+                failed = true
+                message = String(localized: "Das ist keine LumoGo-Sicherung.")
+            }
+        }
+        .alert(failed ? "Fehler" : "Wiederhergestellt", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(message ?? "")
+        }
     }
 }

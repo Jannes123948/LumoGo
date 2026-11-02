@@ -183,6 +183,11 @@ final class SpeedLimitMap {
             out qt;
             nwr["amenity"~"^(school|kindergarten)$"](around.w:60);
             out center tags qt;
+            (
+              node["highway"="speed_camera"](around.w:40);
+              node["enforcement"~"^(maxspeed|average_speed)$"](around.w:40);
+            );
+            out qt;
             """ : "")
             guard let data = try? await OverpassClient.rawQuery(query, retryCount: 2),
                   let (ways, nodes, foundHazards) = parse(data) else { continue }

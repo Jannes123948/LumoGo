@@ -17,6 +17,10 @@ struct RoutePanel: View {
             }
             .pickerStyle(.segmented)
 
+            if settings.routingProfile == .car, model.activeTour == nil {
+                AvoidMenu()
+            }
+
             if model.routeOptions.count > 1 {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -145,6 +149,39 @@ struct RoutePanel: View {
             Button("Speichern") { model.saveCurrentRoute(name: routeName) }
         } message: {
             Text("Unter „Favoriten & Routen“ jederzeit wieder abrufbar.")
+        }
+    }
+}
+
+/** „Meiden“-Menü im Routen-Panel: Änderung berechnet die Route sofort neu. */
+private struct AvoidMenu: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var settings: AppSettings
+
+    private func binding(_ keyPath: ReferenceWritableKeyPath<AppSettings, Bool>) -> Binding<Bool> {
+        Binding(get: { settings[keyPath: keyPath] }, set: { value in
+            settings[keyPath: keyPath] = value
+            if model.lastRoute != nil { model.calculateRoute() }
+        })
+    }
+
+    private var summary: String {
+        var parts: [String] = []
+        if settings.avoidTolls { parts.append(String(localized: "Maut")) }
+        if settings.avoidMotorways { parts.append(String(localized: "Autobahn")) }
+        if settings.avoidFerries { parts.append(String(localized: "Fähren")) }
+        return parts.isEmpty ? String(localized: "Meiden") : String(localized: "Meiden: \(parts.joined(separator: ", "))")
+    }
+
+    var body: some View {
+        Menu {
+            Toggle(isOn: binding(\.avoidTolls)) { Label("Maut meiden", systemImage: "eurosign.circle") }
+            Toggle(isOn: binding(\.avoidMotorways)) { Label("Autobahn meiden", systemImage: "road.lanes") }
+            Toggle(isOn: binding(\.avoidFerries)) { Label("Fähren meiden", systemImage: "ferry") }
+        } label: {
+            Label(summary, systemImage: "arrow.triangle.branch")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(settings.avoidOptions.isActive ? settings.accent : Color.secondary)
         }
     }
 }

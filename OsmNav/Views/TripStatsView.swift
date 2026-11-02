@@ -5,6 +5,8 @@ import Charts
 struct TripStatsSection: View {
     let trips: [Trip]
     @State private var csvFile: URL?
+    @State private var period = TripStats.Period.weeks
+    @State private var metric = TripStats.Metric.km
 
     var body: some View {
         let stats = TripStats(trips: trips)
@@ -16,21 +18,34 @@ struct TripStatsSection: View {
             }
             .padding(.vertical, 4)
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Kilometer je Woche").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Chart(stats.weeks) { week in
-                    BarMark(x: .value("Woche", week.start, unit: .weekOfYear), y: .value("km", week.km))
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Zeitraum", selection: $period) {
+                    ForEach(TripStats.Period.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Picker("Kennzahl", selection: $metric) {
+                    ForEach(TripStats.Metric.allCases) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                let buckets = stats.buckets(period)
+                Chart(buckets) { bucket in
+                    BarMark(x: .value("Zeitraum", bucket.start, unit: period.component), y: .value(metric.label, bucket.value(metric)))
                         .foregroundStyle(Color.accentColor.gradient)
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .weekOfYear)) { _ in
-                        AxisValueLabel(format: .dateTime.day().month(.defaultDigits), centered: true)
+                    AxisMarks(values: .stride(by: period.component, count: period == .weeks ? 1 : 2)) { _ in
+                        AxisValueLabel(format: period == .weeks ? .dateTime.day().month(.defaultDigits) : .dateTime.month(.abbreviated), centered: true)
                     }
                 }
-                .frame(height: 120)
+                .frame(height: 140)
+                Text(metric.unitNote).font(.caption2).foregroundStyle(.secondary)
             }
             .padding(.vertical, 4)
 
+            row(String(localized: "Ø pro Fahrt"), "\(FormatUtils.formatDistance(stats.averageMeters)) · \(FormatUtils.formatDuration(stats.averageSeconds))")
+            if let speed = stats.averageKmh {
+                row(String(localized: "Ø Geschwindigkeit"), String(localized: "\(Int(speed.rounded())) km/h"))
+            }
             if let longest = stats.longest {
                 row(String(localized: "Längste Fahrt"), "\(FormatUtils.formatDistance(longest.drivenMeters ?? longest.distanceMeters)) · \(longest.destinationName.components(separatedBy: ",").first ?? "")")
             }
@@ -72,16 +87,63 @@ struct TripStatsSection: View {
 
 /** Auswertung (ohne UI, per macOS-Test prüfbar). */
 struct TripStats {
-    struct Week: Identifiable {
+    enum Period: String, CaseIterable, Identifiable {
+        case weeks, months
+        var id: String { rawValue }
+        var label: String { self == .weeks ? String(localized: "Wochen") : String(localized: "Monate") }
+        var component: Calendar.Component { self == .weeks ? .weekOfYear : .month }
+        var count: Int { self == .weeks ? 8 : 12 }
+    }
+
+    enum Metric: String, CaseIterable, Identifiable {
+        case km, trips, cost, speed
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .km: return String(localized: "Kilometer")
+            case .trips: return String(localized: "Fahrten")
+            case .cost: return String(localized: "Kosten")
+            case .speed: return String(localized: "Ø Tempo")
+            }
+        }
+        var unitNote: String {
+            switch self {
+            case .km: return String(localized: "Gefahrene Kilometer")
+            case .trips: return String(localized: "Anzahl Fahrten")
+            case .cost: return String(localized: "Geschätzte Spritkosten in Euro")
+            case .speed: return String(localized: "Durchschnittsgeschwindigkeit in km/h")
+            }
+        }
+    }
+
+    struct Bucket: Identifiable {
         let start: Date
         let km: Double
+        let count: Int
+        let cost: Double
+        let averageKmh: Double
         var id: Date { start }
+
+        func value(_ metric: Metric) -> Double {
+            switch metric {
+            case .km: return km
+            case .trips: return Double(count)
+            case .cost: return cost
+            case .speed: return averageKmh
+            }
+        }
     }
 
     let count: Int
     let totalMeters: Double
     let totalSeconds: Double
-    let weeks: [Week]
+    private let trips: [Trip]
+    private let now: Date
+    private let calendar: Calendar
+    let averageMeters: Double
+    let averageSeconds: Double
+    /** Ø aller Fahrten mit gemessenem Tempo; nil = keine Messung. */
+    let averageKmh: Double?
     let longest: Trip?
     let fastest: Trip?
     let topDestinations: [(name: String, count: Int)]
@@ -96,17 +158,15 @@ struct TripStats {
         longest = trips.max { ($0.drivenMeters ?? $0.distanceMeters) < ($1.drivenMeters ?? $1.distanceMeters) }
         fastest = trips.filter { $0.maxKmh != nil }.max { ($0.maxKmh ?? 0) < ($1.maxKmh ?? 0) }
 
-        // Letzte 8 Wochen (auch leere), Montag als Wochenbeginn wie in Deutschland üblich.
+        self.trips = trips
+        self.now = now
         var cal = calendar
-        cal.firstWeekday = 2
-        let thisWeek = cal.dateInterval(of: .weekOfYear, for: now)?.start ?? now
-        weeks = (0..<8).reversed().compactMap { offset -> Week? in
-            guard let start = cal.date(byAdding: .weekOfYear, value: -offset, to: thisWeek),
-                  let end = cal.date(byAdding: .weekOfYear, value: 1, to: start) else { return nil }
-            let meters = trips.filter { $0.timestamp >= start && $0.timestamp < end }
-                .reduce(0) { $0 + ($1.drivenMeters ?? $1.distanceMeters) }
-            return Week(start: start, km: meters / 1000)
-        }
+        cal.firstWeekday = 2 // Montag als Wochenbeginn
+        self.calendar = cal
+        averageMeters = trips.isEmpty ? 0 : totalMeters / Double(trips.count)
+        averageSeconds = trips.isEmpty ? 0 : totalSeconds / Double(trips.count)
+        let speeds = trips.compactMap(\.averageKmh)
+        averageKmh = speeds.isEmpty ? nil : speeds.reduce(0, +) / Double(speeds.count)
 
         // Ziele nach dem ersten Teil des Namens zählen („Zuhause“, „Hauptstraße 3“).
         var counts: [String: Int] = [:]
@@ -116,6 +176,22 @@ struct TripStats {
         }
         topDestinations = counts.filter { $0.value > 1 }.sorted { $0.value > $1.value || ($0.value == $1.value && $0.key < $1.key) }
             .prefix(3).map { ($0.key, $0.value) }
+    }
+
+    /** Die letzten Wochen bzw. Monate (auch leere), älteste zuerst. */
+    func buckets(_ period: Period) -> [Bucket] {
+        let component = period.component
+        guard let current = calendar.dateInterval(of: component, for: now)?.start else { return [] }
+        return (0..<period.count).reversed().compactMap { offset -> Bucket? in
+            guard let start = calendar.date(byAdding: component, value: -offset, to: current),
+                  let end = calendar.date(byAdding: component, value: 1, to: start) else { return nil }
+            let inside = trips.filter { $0.timestamp >= start && $0.timestamp < end }
+            let meters = inside.reduce(0) { $0 + ($1.drivenMeters ?? $1.distanceMeters) }
+            let speeds = inside.compactMap(\.averageKmh)
+            return Bucket(start: start, km: meters / 1000, count: inside.count,
+                          cost: inside.reduce(0) { $0 + ($1.fuelCost ?? 0) },
+                          averageKmh: speeds.isEmpty ? 0 : speeds.reduce(0, +) / Double(speeds.count))
+        }
     }
 
     /** CSV mit Semikolon und Komma-Dezimalen (öffnet in deutschem Excel/Numbers direkt richtig). */
